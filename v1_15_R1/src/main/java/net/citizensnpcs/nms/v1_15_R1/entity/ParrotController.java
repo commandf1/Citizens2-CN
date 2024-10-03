@@ -16,12 +16,14 @@ import net.citizensnpcs.npc.ai.NPCHolder;
 import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.Util;
 import net.minecraft.server.v1_15_R1.AxisAlignedBB;
+import net.minecraft.server.v1_15_R1.ControllerMoveFlying;
 import net.minecraft.server.v1_15_R1.DamageSource;
 import net.minecraft.server.v1_15_R1.Entity;
 import net.minecraft.server.v1_15_R1.EntityBoat;
 import net.minecraft.server.v1_15_R1.EntityHuman;
 import net.minecraft.server.v1_15_R1.EntityMinecartAbstract;
 import net.minecraft.server.v1_15_R1.EntityParrot;
+import net.minecraft.server.v1_15_R1.EntityPlayer;
 import net.minecraft.server.v1_15_R1.EntityTypes;
 import net.minecraft.server.v1_15_R1.EnumHand;
 import net.minecraft.server.v1_15_R1.EnumPistonReaction;
@@ -52,6 +54,9 @@ public class ParrotController extends MobEntityController {
         public EntityParrotNPC(EntityTypes<? extends EntityParrot> types, World world, NPC npc) {
             super(types, world);
             this.npc = (CitizensNPC) npc;
+            if (npc != null) {
+                this.moveController = new ControllerMoveFlying(this, 10, true);
+            }
         }
 
         @Override
@@ -71,6 +76,11 @@ public class ParrotController extends MobEntityController {
             if (npc == null || !npc.isProtected())
                 return super.a(paramEntityHuman, paramEnumHand);
             return false;
+        }
+
+        @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
         }
 
         @Override

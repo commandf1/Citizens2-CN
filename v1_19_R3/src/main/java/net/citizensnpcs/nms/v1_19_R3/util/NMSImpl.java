@@ -42,7 +42,6 @@ import org.bukkit.craftbukkit.v1_19_R3.event.CraftEventFactory;
 import org.bukkit.craftbukkit.v1_19_R3.event.CraftPortalEvent;
 import org.bukkit.craftbukkit.v1_19_R3.inventory.CraftInventoryAnvil;
 import org.bukkit.craftbukkit.v1_19_R3.inventory.CraftInventoryView;
-import org.bukkit.craftbukkit.v1_19_R3.inventory.CraftItemStack;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.FishHook;
 import org.bukkit.entity.Player;
@@ -81,19 +80,6 @@ import net.citizensnpcs.api.command.CommandManager;
 import net.citizensnpcs.api.command.exception.CommandException;
 import net.citizensnpcs.api.event.DespawnReason;
 import net.citizensnpcs.api.gui.ForwardingInventory;
-import net.citizensnpcs.api.jnbt.ByteArrayTag;
-import net.citizensnpcs.api.jnbt.ByteTag;
-import net.citizensnpcs.api.jnbt.CompoundTag;
-import net.citizensnpcs.api.jnbt.DoubleTag;
-import net.citizensnpcs.api.jnbt.EndTag;
-import net.citizensnpcs.api.jnbt.FloatTag;
-import net.citizensnpcs.api.jnbt.IntArrayTag;
-import net.citizensnpcs.api.jnbt.IntTag;
-import net.citizensnpcs.api.jnbt.ListTag;
-import net.citizensnpcs.api.jnbt.LongTag;
-import net.citizensnpcs.api.jnbt.ShortTag;
-import net.citizensnpcs.api.jnbt.StringTag;
-import net.citizensnpcs.api.jnbt.Tag;
 import net.citizensnpcs.api.npc.BlockBreaker;
 import net.citizensnpcs.api.npc.BlockBreaker.BlockBreakerConfiguration;
 import net.citizensnpcs.api.npc.NPC;
@@ -102,6 +88,7 @@ import net.citizensnpcs.api.trait.TraitInfo;
 import net.citizensnpcs.api.util.BoundingBox;
 import net.citizensnpcs.api.util.EntityDim;
 import net.citizensnpcs.api.util.Messaging;
+import net.citizensnpcs.api.util.SpigotUtil.InventoryViewAPI;
 import net.citizensnpcs.nms.v1_19_R3.entity.AllayController;
 import net.citizensnpcs.nms.v1_19_R3.entity.ArmorStandController;
 import net.citizensnpcs.nms.v1_19_R3.entity.AxolotlController;
@@ -193,6 +180,7 @@ import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.EnderCrystalController;
 import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.EnderPearlController;
 import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.EnderSignalController;
 import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.EvokerFangsController;
+import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.ExperienceOrbController;
 import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.FallingBlockController;
 import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.FireworkController;
 import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.FishingHookController;
@@ -210,6 +198,7 @@ import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.MinecartCommandController;
 import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.MinecartFurnaceController;
 import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.MinecartHopperController;
 import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.MinecartRideableController;
+import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.MinecartSpawnerController;
 import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.MinecartTNTController;
 import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.PaintingController;
 import net.citizensnpcs.nms.v1_19_R3.entity.nonliving.ShulkerBulletController;
@@ -227,7 +216,7 @@ import net.citizensnpcs.npc.EntityControllers;
 import net.citizensnpcs.npc.ai.MCNavigationStrategy.MCNavigator;
 import net.citizensnpcs.npc.ai.MCTargetStrategy.TargetNavigator;
 import net.citizensnpcs.npc.ai.NPCHolder;
-import net.citizensnpcs.npc.skin.SkinnableEntity;
+import net.citizensnpcs.trait.EntityPoseTrait.EntityPose;
 import net.citizensnpcs.trait.MirrorTrait;
 import net.citizensnpcs.trait.RotationTrait;
 import net.citizensnpcs.trait.versioned.AllayTrait;
@@ -237,6 +226,7 @@ import net.citizensnpcs.trait.versioned.BossBarTrait;
 import net.citizensnpcs.trait.versioned.CamelTrait;
 import net.citizensnpcs.trait.versioned.CamelTrait.CamelPose;
 import net.citizensnpcs.trait.versioned.CatTrait;
+import net.citizensnpcs.trait.versioned.DisplayTrait;
 import net.citizensnpcs.trait.versioned.EnderDragonTrait;
 import net.citizensnpcs.trait.versioned.FoxTrait;
 import net.citizensnpcs.trait.versioned.FrogTrait;
@@ -288,7 +278,6 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.PlayerAdvancements;
 import net.minecraft.server.level.ChunkMap;
 import net.minecraft.server.level.ChunkMap.TrackedEntity;
 import net.minecraft.server.level.ServerBossEvent;
@@ -320,7 +309,6 @@ import net.minecraft.world.entity.ai.attributes.AttributeMap;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.control.FlyingMoveControl;
-import net.minecraft.world.entity.ai.control.JumpControl;
 import net.minecraft.world.entity.ai.control.LookControl;
 import net.minecraft.world.entity.ai.control.MoveControl;
 import net.minecraft.world.entity.ai.goal.GoalSelector;
@@ -438,8 +426,8 @@ public class NMSImpl implements NMSBridge {
     public void attack(org.bukkit.entity.LivingEntity attacker, org.bukkit.entity.LivingEntity btarget) {
         LivingEntity source = getHandle(attacker);
         LivingEntity target = getHandle(btarget);
-        if (source instanceof ServerPlayer) {
-            ((ServerPlayer) source).attack(target);
+        if (source instanceof net.minecraft.world.entity.player.Player) {
+            ((net.minecraft.world.entity.player.Player) source).attack(target);
             PlayerAnimation.ARM_SWING.play((Player) source.getBukkitEntity());
             return;
         }
@@ -669,17 +657,6 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
-    public CompoundTag getNBT(org.bukkit.inventory.ItemStack item) {
-        return convertNBT(CraftItemStack.asNMSCopy(item).getTag());
-    }
-
-    @Override
-    public NPC getNPC(org.bukkit.entity.Entity entity) {
-        Entity handle = getHandle(entity);
-        return handle instanceof NPCHolder ? ((NPCHolder) handle).getNPC() : null;
-    }
-
-    @Override
     public EntityPacketTracker getPacketTracker(org.bukkit.entity.Entity entity) {
         ServerLevel server = (ServerLevel) getHandle(entity).level;
         TrackedEntity entry = server.getChunkSource().chunkMap.entityMap.get(entity.getEntityId());
@@ -733,6 +710,11 @@ public class NMSImpl implements NMSBridge {
             e.printStackTrace();
             return null;
         }
+    }
+
+    @Override
+    public float getRidingHeightOffset(org.bukkit.entity.Entity entity, org.bukkit.entity.Entity mount) {
+        return (float) getHandle(mount).getPassengersRidingOffset();
     }
 
     @Override
@@ -927,6 +909,13 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
+    public boolean isSneaking(org.bukkit.entity.Entity entity) {
+        if (entity instanceof Player)
+            return ((Player) entity).isSneaking();
+        return getHandle(entity).getPose() == Pose.CROUCHING;
+    }
+
+    @Override
     public boolean isSolid(org.bukkit.block.Block in) {
         BlockState data = ((CraftBlock) in).getNMS();
         return data.isSuffocating(((CraftWorld) in.getWorld()).getHandle(),
@@ -940,22 +929,6 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
-    public void linkTextInteraction(org.bukkit.entity.Player player, org.bukkit.entity.Entity entity,
-            org.bukkit.entity.Entity mount, double offset) {
-        offset += -0.5 + getHandle(mount).getPassengersRidingOffset();
-        sendPacket(player,
-                new ClientboundBundlePacket(List.of(
-                        new ClientboundSetEntityDataPacket(entity.getEntityId(),
-                                List.of(new SynchedEntityData.DataItem<>(INTERACTION_WIDTH, 0f).value(),
-                                        new SynchedEntityData.DataItem<>(INTERACTION_HEIGHT, (float) offset).value(),
-                                        new SynchedEntityData.DataItem<>(DATA_POSE, Pose.CROAKING).value(),
-                                        new SynchedEntityData.DataItem<>(DATA_NAME_VISIBLE, true).value())),
-                        new ClientboundSetPassengersPacket(getHandle(mount)),
-                        new ClientboundSetEntityDataPacket(entity.getEntityId(),
-                                List.of(new SynchedEntityData.DataItem<>(INTERACTION_HEIGHT, 999999f).value())))));
-    }
-
-    @Override
     public void load(CommandManager manager) {
         registerTraitWithCommand(manager, EnderDragonTrait.class);
         registerTraitWithCommand(manager, AllayTrait.class);
@@ -964,6 +937,7 @@ public class NMSImpl implements NMSBridge {
         registerTraitWithCommand(manager, BossBarTrait.class);
         registerTraitWithCommand(manager, CamelTrait.class);
         registerTraitWithCommand(manager, CatTrait.class);
+        registerTraitWithCommand(manager, DisplayTrait.class);
         registerTraitWithCommand(manager, FoxTrait.class);
         registerTraitWithCommand(manager, FrogTrait.class);
         registerTraitWithCommand(manager, GoatTrait.class);
@@ -1049,8 +1023,8 @@ public class NMSImpl implements NMSBridge {
         EntityControllers.setEntityControllerForType(EntityType.MINECART_FURNACE, MinecartFurnaceController.class);
         EntityControllers.setEntityControllerForType(EntityType.MINECART_HOPPER, MinecartHopperController.class);
         EntityControllers.setEntityControllerForType(EntityType.MINECART_TNT, MinecartTNTController.class);
+        EntityControllers.setEntityControllerForType(EntityType.MINECART_MOB_SPAWNER, MinecartSpawnerController.class);
         EntityControllers.setEntityControllerForType(EntityType.MUSHROOM_COW, MushroomCowController.class);
-        EntityControllers.setEntityControllerForType(EntityType.SPLASH_POTION, ThrownPotionController.class);
         EntityControllers.setEntityControllerForType(EntityType.OCELOT, OcelotController.class);
         EntityControllers.setEntityControllerForType(EntityType.PANDA, PandaController.class);
         EntityControllers.setEntityControllerForType(EntityType.PAINTING, PaintingController.class);
@@ -1084,8 +1058,9 @@ public class NMSImpl implements NMSBridge {
         EntityControllers.setEntityControllerForType(EntityType.SPIDER, SpiderController.class);
         EntityControllers.setEntityControllerForType(EntityType.SPLASH_POTION, ThrownPotionController.class);
         EntityControllers.setEntityControllerForType(EntityType.SQUID, SquidController.class);
+        EntityControllers.setEntityControllerForType(EntityType.EXPERIENCE_ORB, ExperienceOrbController.class);
         EntityControllers.setEntityControllerForType(EntityType.GLOW_SQUID, GlowSquidController.class);
-        EntityControllers.setEntityControllerForType(EntityType.SPECTRAL_ARROW, TippedArrowController.class);
+        EntityControllers.setEntityControllerForType(EntityType.SPECTRAL_ARROW, SpectralArrowController.class);
         EntityControllers.setEntityControllerForType(EntityType.THROWN_EXP_BOTTLE, ThrownExpBottleController.class);
         EntityControllers.setEntityControllerForType(EntityType.TRIDENT, ThrownTridentController.class);
         EntityControllers.setEntityControllerForType(EntityType.TROPICAL_FISH, TropicalFishController.class);
@@ -1140,7 +1115,7 @@ public class NMSImpl implements NMSBridge {
                 yaw += Math.abs(180 - yaw) * 2;
             }
             if (handle.getBukkitEntity().getType() == EntityType.ENDER_DRAGON) {
-                yaw = Util.getDragonYaw(handle.getBukkitEntity(), xDiff, zDiff);
+                yaw = Util.getYawFromVelocity(handle.getBukkitEntity(), xDiff, zDiff);
             } else {
                 yaw = yaw - 90;
             }
@@ -1190,6 +1165,11 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
+    public void markPoseDirty(org.bukkit.entity.Entity entity) {
+        getHandle(entity).getEntityData().markDirty(DATA_POSE);
+    }
+
+    @Override
     public void mount(org.bukkit.entity.Entity entity, org.bukkit.entity.Entity passenger) {
         if (getHandle(passenger) == null)
             return;
@@ -1211,12 +1191,13 @@ public class NMSImpl implements NMSBridge {
             if (trait == null || !trait.isMirroring(player)) {
                 continue;
             }
-            if (Setting.DISABLE_TABLIST.asBoolean() != npcInfo.listed()) {
+            boolean disableTablist = trait.getNPC().shouldRemoveFromTabList();
+
+            if (disableTablist != npcInfo.listed()) {
                 list.set(i,
                         new ClientboundPlayerInfoUpdatePacket.Entry(npcInfo.profileId(), npcInfo.profile(),
-                                !Setting.DISABLE_TABLIST.asBoolean(), npcInfo.latency(), npcInfo.gameMode(),
-                                !Setting.DISABLE_TABLIST.asBoolean() ? npcInfo.displayName() : Component.empty(),
-                                npcInfo.chatSession()));
+                                !disableTablist, npcInfo.latency(), npcInfo.gameMode(),
+                                !disableTablist ? npcInfo.displayName() : Component.empty(), npcInfo.chatSession()));
                 changed = true;
             }
             if (playerProfile == null) {
@@ -1224,9 +1205,10 @@ public class NMSImpl implements NMSBridge {
             }
             if (trait.mirrorName()) {
                 list.set(i,
-                        new ClientboundPlayerInfoUpdatePacket.Entry(npcInfo.profileId(), playerProfile,
-                                !Setting.DISABLE_TABLIST.asBoolean(), npcInfo.latency(), npcInfo.gameMode(),
-                                Component.literal(playerProfile.getName()), npcInfo.chatSession()));
+                        new ClientboundPlayerInfoUpdatePacket.Entry(npcInfo.profileId(), playerProfile, !disableTablist,
+                                npcInfo.latency(), npcInfo.gameMode(), Component.literal(Util
+                                        .possiblyStripBedrockPrefix(playerProfile.getName(), playerProfile.getId())),
+                                npcInfo.chatSession()));
                 changed = true;
                 continue;
             }
@@ -1306,8 +1288,29 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
-    public Runnable playerTicker(Player entity) {
-        return ((ServerPlayer) getHandle(entity))::doTick;
+    public Runnable playerTicker(NPC npc, Player entity) {
+        ServerPlayer player = (ServerPlayer) getHandle(entity);
+        return () -> {
+            if (!entity.isValid())
+                return;
+            player.doTick();
+        };
+    }
+
+    @Override
+    public void positionInteractionText(org.bukkit.entity.Player player, org.bukkit.entity.Entity entity,
+            org.bukkit.entity.Entity mount, double offset) {
+        offset += getRidingHeightOffset(entity, mount) + 0.5;
+        sendPacket(player,
+                new ClientboundBundlePacket(List.of(
+                        new ClientboundSetEntityDataPacket(entity.getEntityId(),
+                                List.of(new SynchedEntityData.DataItem<>(INTERACTION_WIDTH, 0f).value(),
+                                        new SynchedEntityData.DataItem<>(INTERACTION_HEIGHT, (float) offset).value(),
+                                        new SynchedEntityData.DataItem<>(DATA_POSE, Pose.CROAKING).value(),
+                                        new SynchedEntityData.DataItem<>(DATA_NAME_VISIBLE, true).value())),
+                        new ClientboundSetPassengersPacket(getHandle(mount)),
+                        new ClientboundSetEntityDataPacket(entity.getEntityId(),
+                                List.of(new SynchedEntityData.DataItem<>(INTERACTION_HEIGHT, 999999f).value())))));
     }
 
     @Override
@@ -1392,9 +1395,7 @@ public class NMSImpl implements NMSBridge {
         ServerPlayer from = ((CraftPlayer) listPlayer).getHandle();
         ClientboundPlayerInfoUpdatePacket packet = ClientboundPlayerInfoUpdatePacket
                 .createPlayerInitializing(Arrays.asList(from));
-        boolean list = from instanceof NPCHolder
-                ? !((NPCHolder) from).getNPC().data().get("removefromtablist", Setting.DISABLE_TABLIST.asBoolean())
-                : false;
+        boolean list = from instanceof NPCHolder ? !((NPCHolder) from).getNPC().shouldRemoveFromTabList() : true;
         ClientboundPlayerInfoUpdatePacket.Entry entry = new ClientboundPlayerInfoUpdatePacket.Entry(from.getUUID(),
                 from.getGameProfile(), list, from.latency, from.gameMode.getGameModeForPlayer(),
                 list ? from.getTabListDisplayName() : Component.empty(),
@@ -1409,24 +1410,11 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
-    public void sendTabListRemove(Player recipient, Collection<? extends SkinnableEntity> skinnableNPCs) {
+    public void sendTabListRemove(Player recipient, Collection<Player> skinnableNPCs) {
         Preconditions.checkNotNull(recipient);
         Preconditions.checkNotNull(skinnableNPCs);
-        ServerPlayer[] entities = new ServerPlayer[skinnableNPCs.size()];
-        int i = 0;
-        for (SkinnableEntity skinnable : skinnableNPCs) {
-            entities[i] = (ServerPlayer) skinnable;
-            i++;
-        }
-        sendPacket(recipient, new ClientboundPlayerInfoRemovePacket(
-                skinnableNPCs.stream().map(e -> ((ServerPlayer) e).getUUID()).collect(Collectors.toList())));
-    }
-
-    @Override
-    public void sendTabListRemove(Player recipient, Player listPlayer) {
-        Preconditions.checkNotNull(recipient);
-        Preconditions.checkNotNull(listPlayer);
-        sendPacket(recipient, new ClientboundPlayerInfoRemovePacket(Arrays.asList(getHandle(listPlayer).getUUID())));
+        sendPacket(recipient, new ClientboundPlayerInfoRemovePacket(skinnableNPCs.stream()
+                .map((Function<? super Player, ? extends UUID>) Player::getUniqueId).collect(Collectors.toList())));
     }
 
     @Override
@@ -1503,13 +1491,7 @@ public class NMSImpl implements NMSBridge {
 
     @Override
     public void setCustomName(org.bukkit.entity.Entity entity, Object component, String string) {
-        if (getHandle(entity) instanceof net.minecraft.world.entity.Display.TextDisplay) {
-            net.minecraft.world.entity.Display.TextDisplay disp = (net.minecraft.world.entity.Display.TextDisplay) getHandle(
-                    entity);
-            disp.setText((Component) component);
-        } else {
-            getHandle(entity).setCustomName((Component) component);
-        }
+        getHandle(entity).setCustomName((Component) component);
     }
 
     @Override
@@ -1565,7 +1547,6 @@ public class NMSImpl implements NMSBridge {
 
     @Override
     public void setLocationDirectly(org.bukkit.entity.Entity entity, Location location) {
-        getHandle(entity).setPos(location.getX(), location.getY(), location.getZ());
         getHandle(entity).moveTo(location.getX(), location.getY(), location.getZ(), location.getYaw(),
                 location.getPitch());
     }
@@ -1658,6 +1639,11 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
+    public void setPose(org.bukkit.entity.Entity entity, EntityPose pose) {
+        getHandle(entity).setPose(Pose.valueOf(pose.name()));
+    }
+
+    @Override
     public void setProfile(SkullMeta meta, GameProfile profile) {
         if (SET_PROFILE_METHOD == null) {
             SET_PROFILE_METHOD = NMS.getMethodHandle(meta.getClass(), "setProfile", true, GameProfile.class);
@@ -1676,10 +1662,11 @@ public class NMSImpl implements NMSBridge {
         Entity handle = getHandle(entity);
         if (handle == null)
             return;
-        if (handle instanceof Mob) {
-            JumpControl controller = ((Mob) handle).getJumpControl();
-            controller.jump();
-        } else {
+        MobAI ai = MobAI.from(handle);
+        if (ai != null) {
+            ai.getJumpControl().jump();
+        }
+        if (handle instanceof LivingEntity) {
             ((LivingEntity) handle).setJumping(true);
         }
     }
@@ -1713,6 +1700,13 @@ public class NMSImpl implements NMSBridge {
     @Override
     public void setStepHeight(org.bukkit.entity.Entity entity, float height) {
         getHandle(entity).setMaxUpStep(height);
+    }
+
+    @Override
+    public void setTextDisplayComponent(org.bukkit.entity.Entity entity, Object component) {
+        net.minecraft.world.entity.Display.TextDisplay disp = (net.minecraft.world.entity.Display.TextDisplay) getHandle(
+                entity);
+        disp.setText((Component) component);
     }
 
     @Override
@@ -1762,9 +1756,9 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
-    public void setWitherCharged(Wither wither, boolean charged) {
+    public void setWitherInvulnerableTicks(Wither wither, int ticks) {
         WitherBoss handle = ((CraftWither) wither).getHandle();
-        handle.setInvulnerableTicks(charged ? 20 : 0);
+        handle.setInvulnerableTicks(ticks);
     }
 
     @Override
@@ -1790,8 +1784,8 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
-    public void sleep(org.bukkit.entity.Player player, boolean sleeping) {
-        getHandle(player).setPose(sleeping ? Pose.SLEEPING : Pose.STANDING);
+    public void sleep(org.bukkit.entity.Player entity, boolean sleep) {
+        getHandle(entity).setPose(sleep ? Pose.SLEEPING : Pose.STANDING);
     }
 
     @Override
@@ -1811,7 +1805,7 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
-    public void updateInventoryTitle(Player player, InventoryView view, String newTitle) {
+    public void updateInventoryTitle(Player player, InventoryViewAPI view, String newTitle) {
         ServerPlayer handle = (ServerPlayer) getHandle(player);
         MenuType<?> menuType = null;
         switch (view.getTopInventory().getType()) {
@@ -2081,52 +2075,6 @@ public class NMSImpl implements NMSBridge {
         }
     }
 
-    private static CompoundTag convertNBT(net.minecraft.nbt.CompoundTag tag) {
-        if (tag == null)
-            return new CompoundTag("", Collections.EMPTY_MAP);
-        Map<String, Tag> tags = Maps.newHashMap();
-        for (String key : tag.getAllKeys()) {
-            tags.put(key, convertNBT(key, tag.get(key)));
-        }
-        return new CompoundTag("", tags);
-    }
-
-    private static Tag convertNBT(String key, net.minecraft.nbt.Tag base) {
-        if (base instanceof net.minecraft.nbt.IntTag)
-            return new IntTag(key, ((net.minecraft.nbt.IntTag) base).getAsInt());
-        else if (base instanceof net.minecraft.nbt.FloatTag)
-            return new FloatTag(key, ((net.minecraft.nbt.FloatTag) base).getAsFloat());
-        else if (base instanceof net.minecraft.nbt.DoubleTag)
-            return new DoubleTag(key, ((net.minecraft.nbt.DoubleTag) base).getAsDouble());
-        else if (base instanceof net.minecraft.nbt.LongTag)
-            return new LongTag(key, ((net.minecraft.nbt.LongTag) base).getAsLong());
-        else if (base instanceof net.minecraft.nbt.ShortTag)
-            return new ShortTag(key, ((net.minecraft.nbt.ShortTag) base).getAsShort());
-        else if (base instanceof net.minecraft.nbt.ByteTag)
-            return new ByteTag(key, ((net.minecraft.nbt.ByteTag) base).getAsByte());
-        else if (base instanceof net.minecraft.nbt.ByteArrayTag)
-            return new ByteArrayTag(key, ((net.minecraft.nbt.ByteArrayTag) base).getAsByteArray());
-        else if (base instanceof net.minecraft.nbt.IntArrayTag)
-            return new IntArrayTag(key, ((net.minecraft.nbt.IntArrayTag) base).getAsIntArray());
-        else if (base instanceof net.minecraft.nbt.StringTag)
-            return new StringTag(key, base.getAsString());
-        else if (base instanceof net.minecraft.nbt.ListTag) {
-            List<net.minecraft.nbt.Tag> list = (List<net.minecraft.nbt.Tag>) base;
-            List<Tag> converted = Lists.newArrayList();
-            if (list.size() > 0) {
-                Class<? extends Tag> tagType = convertNBT("", list.get(0)).getClass();
-                for (int i = 0; i < list.size(); i++) {
-                    converted.add(convertNBT("", list.get(i)));
-                }
-                return new ListTag(key, tagType, converted);
-            }
-        } else if (base instanceof net.minecraft.nbt.CompoundTag)
-            return convertNBT((net.minecraft.nbt.CompoundTag) base);
-        else if (base instanceof net.minecraft.nbt.EndTag)
-            return new EndTag();
-        return null;
-    }
-
     public static void flyingMoveLogic(LivingEntity entity, Vec3 vec3d) {
         if (entity.isEffectiveAi() || entity.isControlledByLocalInstance()) {
             double d0 = 0.08D;
@@ -2345,9 +2293,10 @@ public class NMSImpl implements NMSBridge {
     }
 
     public static SoundEvent getSoundEffect(NPC npc, SoundEvent snd, NPC.Metadata meta) {
-        return npc == null || !npc.data().has(meta) ? snd
-                : BuiltInRegistries.SOUND_EVENT
-                        .get(new ResourceLocation(npc.data().get(meta, snd == null ? "" : snd.toString())));
+        if (npc == null)
+            return snd;
+        String data = npc.data().get(meta);
+        return data == null ? snd : BuiltInRegistries.SOUND_EVENT.get(ResourceLocation.tryParse(data));
     }
 
     public static void initNetworkManager(Connection network) {
@@ -2431,14 +2380,6 @@ public class NMSImpl implements NMSBridge {
             return;
         for (Packet<?> packet : packets) {
             ((ServerPlayer) getHandle(player)).connection.send(packet);
-        }
-    }
-
-    public static void setAdvancement(Player entity, PlayerAdvancements instance) {
-        try {
-            ADVANCEMENTS_PLAYER_SETTER.invoke(getHandle(entity), instance);
-        } catch (Throwable e) {
-            e.printStackTrace();
         }
     }
 
@@ -2600,10 +2541,8 @@ public class NMSImpl implements NMSBridge {
         }
     }
 
-    private static final MethodHandle ADVANCEMENTS_PLAYER_SETTER = NMS.getFirstFinalSetter(ServerPlayer.class,
-            PlayerAdvancements.class);
-
     private static final MethodHandle ATTRIBUTE_PROVIDER_MAP = NMS.getFirstGetter(AttributeSupplier.class, Map.class);
+
     private static final MethodHandle ATTRIBUTE_PROVIDER_MAP_SETTER = NMS.getFirstFinalSetter(AttributeSupplier.class,
             Map.class);
     private static final MethodHandle ATTRIBUTE_SUPPLIER = NMS.getFirstGetter(AttributeMap.class,
@@ -2658,7 +2597,6 @@ public class NMSImpl implements NMSBridge {
     private static final MethodHandle NAVIGATION_PATHFINDER = NMS.getFirstFinalSetter(PathNavigation.class,
             PathFinder.class);
     private static final MethodHandle NAVIGATION_WORLD_FIELD = NMS.getFirstSetter(PathNavigation.class, Level.class);
-    private static final Location PACKET_CACHE_LOCATION = new Location(null, 0, 0, 0);
     private static final MethodHandle PLAYER_CHUNK_MAP_VIEW_DISTANCE_GETTER = NMS.getFirstGetter(ChunkMap.class,
             int.class);
     private static final MethodHandle PLAYER_CHUNK_MAP_VIEW_DISTANCE_SETTER = NMS.getFirstSetter(ChunkMap.class,

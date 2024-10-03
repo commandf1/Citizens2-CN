@@ -9,9 +9,11 @@ import net.citizensnpcs.nms.v1_12_R1.util.NMSBoundingBox;
 import net.citizensnpcs.nms.v1_12_R1.util.NMSImpl;
 import net.citizensnpcs.npc.CitizensNPC;
 import net.citizensnpcs.npc.ai.NPCHolder;
+import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.Util;
 import net.minecraft.server.v1_12_R1.AxisAlignedBB;
 import net.minecraft.server.v1_12_R1.EntityMinecartTNT;
+import net.minecraft.server.v1_12_R1.EntityPlayer;
 import net.minecraft.server.v1_12_R1.EnumPistonReaction;
 import net.minecraft.server.v1_12_R1.NBTTagCompound;
 import net.minecraft.server.v1_12_R1.World;
@@ -44,12 +46,22 @@ public class MinecartTNTController extends MobEntityController {
         }
 
         @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
+        }
+
+        @Override
         public void B_() {
             super.B_();
             if (npc != null) {
                 npc.update();
                 NMSImpl.minecartItemLogic(this);
             }
+        }
+
+        @Override
+        public boolean bo() {
+            return npc == null ? super.bo() : npc.isPushableByFluids();
         }
 
         @Override

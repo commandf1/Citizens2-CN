@@ -15,8 +15,10 @@ import net.citizensnpcs.nms.v1_17_R1.util.NMSBoundingBox;
 import net.citizensnpcs.nms.v1_17_R1.util.NMSImpl;
 import net.citizensnpcs.npc.CitizensNPC;
 import net.citizensnpcs.npc.ai.NPCHolder;
+import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.Util;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.Tag;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -47,8 +49,8 @@ public class ArmorStandController extends MobEntityController {
 
     public static class EntityArmorStandNPC extends ArmorStand implements NPCHolder, ForwardingMobAI {
         private MobAI ai;
-        private final CitizensNPC npc;
 
+        private final CitizensNPC npc;
         public EntityArmorStandNPC(EntityType<? extends ArmorStand> types, Level level) {
             this(types, level, null);
         }
@@ -59,6 +61,11 @@ public class ArmorStandController extends MobEntityController {
             if (ai != null) {
                 ai = new BasicMobAI(this);
             }
+        }
+
+        @Override
+        public boolean broadcastToPlayer(ServerPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.broadcastToPlayer(player));
         }
 
         @Override

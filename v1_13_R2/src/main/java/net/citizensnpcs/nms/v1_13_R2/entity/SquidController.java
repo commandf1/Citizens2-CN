@@ -20,6 +20,7 @@ import net.minecraft.server.v1_13_R2.DamageSource;
 import net.minecraft.server.v1_13_R2.Entity;
 import net.minecraft.server.v1_13_R2.EntityBoat;
 import net.minecraft.server.v1_13_R2.EntityMinecartAbstract;
+import net.minecraft.server.v1_13_R2.EntityPlayer;
 import net.minecraft.server.v1_13_R2.EntitySquid;
 import net.minecraft.server.v1_13_R2.EnumPistonReaction;
 import net.minecraft.server.v1_13_R2.FluidType;
@@ -67,6 +68,11 @@ public class SquidController extends MobEntityController {
         public void a(Entity entity, float strength, double dx, double dz) {
             NMS.callKnockbackEvent(npc, strength, dx, dz, evt -> super.a(entity, (float) evt.getStrength(),
                     evt.getKnockbackVector().getX(), evt.getKnockbackVector().getZ()));
+        }
+
+        @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
         }
 
         @Override

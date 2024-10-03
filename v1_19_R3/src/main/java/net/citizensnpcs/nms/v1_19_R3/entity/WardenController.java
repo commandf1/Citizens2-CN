@@ -18,6 +18,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.PositionImpl;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.Unit;
@@ -56,6 +57,11 @@ public class WardenController extends MobEntityController {
             super(types, level);
             this.npc = (CitizensNPC) npc;
             this.getBrain().setMemoryWithExpiry(MemoryModuleType.DIG_COOLDOWN, Unit.INSTANCE, 1200L);
+        }
+
+        @Override
+        public boolean broadcastToPlayer(ServerPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.broadcastToPlayer(player));
         }
 
         @Override

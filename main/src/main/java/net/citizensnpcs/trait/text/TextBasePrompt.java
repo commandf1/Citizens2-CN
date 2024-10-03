@@ -1,5 +1,6 @@
 package net.citizensnpcs.trait.text;
 
+import java.time.Duration;
 import java.util.Arrays;
 
 import org.bukkit.ChatColor;
@@ -13,6 +14,7 @@ import com.google.common.base.Joiner;
 
 import net.citizensnpcs.Settings.Setting;
 import net.citizensnpcs.api.util.Messaging;
+import net.citizensnpcs.api.util.SpigotUtil;
 import net.citizensnpcs.util.Messages;
 
 public class TextBasePrompt extends StringPrompt {
@@ -72,10 +74,21 @@ public class TextBasePrompt extends StringPrompt {
             }
         } else if (input.equalsIgnoreCase("random")) {
             text.toggleRandomTalker();
+        } else if (original.trim().equalsIgnoreCase("send text to chat")) {
+            text.toggleSendTextToChat();
         } else if (original.trim().equalsIgnoreCase("realistic looking")) {
             text.toggleRealisticLooking();
         } else if (original.trim().equalsIgnoreCase("speech bubbles")) {
             text.toggleSpeechBubbles();
+        } else if (original.trim().startsWith("speech bubbles duration")) {
+            try {
+                Duration duration = SpigotUtil.parseDuration(original.replace("speech bubbles duration", "").trim(),
+                        null);
+                text.setSpeechBubbleDuration(duration);
+                Messaging.sendErrorTr(sender, Messages.SPEECH_BUBBLES_DURATION_SET, duration);
+            } catch (Exception exception) {
+                Messaging.sendErrorTr(sender, Messages.INVALID_SPEECH_BUBBLES_DURATION);
+            }
         } else if (input.equalsIgnoreCase("close") || original.trim().equalsIgnoreCase("talk close")) {
             text.toggleTalkClose();
         } else if (input.equalsIgnoreCase("range")) {
@@ -110,7 +123,7 @@ public class TextBasePrompt extends StringPrompt {
         Messaging.send((Player) context.getForWhom(),
                 Messaging.tr(Messages.TEXT_EDITOR_START_PROMPT, colorToggleableText(text.shouldTalkClose()),
                         colorToggleableText(text.isRandomTalker()), colorToggleableText(text.useSpeechBubbles()),
-                        colorToggleableText(text.useRealisticLooking())));
+                        colorToggleableText(text.useRealisticLooking()), colorToggleableText(text.sendTextToChat())));
         int page = context.getSessionData("page") == null ? 1 : (int) context.getSessionData("page");
         text.sendPage((Player) context.getForWhom(), page);
         return "";

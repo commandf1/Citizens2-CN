@@ -1,11 +1,11 @@
 package net.citizensnpcs.npc;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
@@ -15,10 +15,9 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.ItemStack;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 
-import gnu.trove.map.hash.TIntObjectHashMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.citizensnpcs.Settings.Setting;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.event.DespawnReason;
@@ -33,12 +32,10 @@ import net.citizensnpcs.api.util.RemoveReason;
 import net.citizensnpcs.npc.ai.NPCHolder;
 import net.citizensnpcs.trait.ArmorStandTrait;
 import net.citizensnpcs.trait.LookClose;
-import net.citizensnpcs.trait.MountTrait;
-import net.citizensnpcs.util.NMS;
 
 public class CitizensNPCRegistry implements NPCRegistry {
     private final String name;
-    private final TIntObjectHashMap<NPC> npcs = new TIntObjectHashMap<>();
+    private final Int2ObjectOpenHashMap<NPC> npcs = new Int2ObjectOpenHashMap<>();
     private final NPCDataStore saves;
     private final Map<UUID, NPC> uniqueNPCs = Maps.newHashMap();
 
@@ -65,8 +62,8 @@ public class CitizensNPCRegistry implements NPCRegistry {
 
     @Override
     public NPC createNPC(EntityType type, UUID uuid, int id, String name) {
-        Preconditions.checkNotNull(name, "name cannot be null");
-        Preconditions.checkNotNull(type, "type cannot be null");
+        Objects.requireNonNull(name, "name cannot be null");
+        Objects.requireNonNull(type, "type cannot be null");
         CitizensNPC npc = new CitizensNPC(uuid, id, name, EntityControllers.createForType(type), this);
         npc.getOrAddTrait(MobType.class).setType(type);
         npcs.put(id, npc);
@@ -78,14 +75,14 @@ public class CitizensNPCRegistry implements NPCRegistry {
         if (Setting.DEFAULT_LOOK_CLOSE.asBoolean()) {
             npc.addTrait(LookClose.class);
         }
-        npc.addTrait(MountTrait.class);
         return npc;
     }
 
     @Override
     public NPC createNPCUsingItem(EntityType type, String name, ItemStack item) {
         NPC npc = createNPC(type, name);
-        if (type == EntityType.DROPPED_ITEM || type == EntityType.FALLING_BLOCK || type == EntityType.ITEM_FRAME
+        if (type.name().equals("OMINOUS_ITEM_SPAWNER") || type.name().equals("DROPPED_ITEM")
+                || type.name().equals("ITEM") || type == EntityType.FALLING_BLOCK || type == EntityType.ITEM_FRAME
                 || type.name().equals("GLOW_ITEM_FRAME") || type.name().equals("ITEM_DISPLAY")
                 || type.name().equals("BLOCK_DISPLAY")) {
             npc.data().set(NPC.Metadata.ITEM_AMOUNT, item.getAmount());
@@ -132,7 +129,7 @@ public class CitizensNPCRegistry implements NPCRegistry {
             try {
                 npc.despawn(reason);
             } catch (Throwable e) {
-                e.printStackTrace(); // ensure that all entities are despawned
+                e.printStackTrace();
             }
             itr.remove();
         }
@@ -189,9 +186,7 @@ public class CitizensNPCRegistry implements NPCRegistry {
 
     @Override
     public NPC getNPC(Entity entity) {
-        if (entity == null)
-            return null;
-        return entity instanceof NPCHolder ? ((NPCHolder) entity).getNPC() : NMS.getNPC(entity);
+        return entity instanceof NPCHolder ? ((NPCHolder) entity).getNPC() : null;
     }
 
     @Override
@@ -202,7 +197,7 @@ public class CitizensNPCRegistry implements NPCRegistry {
     @Override
     public Iterator<NPC> iterator() {
         return new Iterator<NPC>() {
-            Iterator<NPC> itr = npcs.valueCollection().iterator();
+            Iterator<NPC> itr = npcs.values().iterator();
             UUID lastUUID;
 
             @Override
@@ -238,8 +233,8 @@ public class CitizensNPCRegistry implements NPCRegistry {
 
     @Override
     public Iterable<NPC> sorted() {
-        List<NPC> vals = new ArrayList<>(npcs.valueCollection());
-        Collections.sort(vals, Comparator.comparing(NPC::getId));
+        List<NPC> vals = new ArrayList<>(npcs.values());
+        vals.sort(Comparator.comparing(NPC::getId));
         return vals;
     }
 }

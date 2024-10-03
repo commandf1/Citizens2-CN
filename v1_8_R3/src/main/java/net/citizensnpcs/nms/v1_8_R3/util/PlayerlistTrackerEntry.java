@@ -4,9 +4,11 @@ import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
+import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 
 import com.google.common.collect.ForwardingMap;
 import com.google.common.collect.ForwardingSet;
@@ -49,7 +51,7 @@ public class PlayerlistTrackerEntry extends EntityTrackerEntry {
                     @Override
                     public Boolean remove(Object conn) {
                         Boolean removed = super.remove(conn);
-                        if (removed == true) {
+                        if (removed) {
                             Bukkit.getPluginManager().callEvent(new NPCUnlinkFromPlayerEvent(
                                     ((NPCHolder) tracker).getNPC(), ((EntityPlayer) conn).getBukkitEntity()));
                         }
@@ -103,8 +105,8 @@ public class PlayerlistTrackerEntry extends EntityTrackerEntry {
 
     public void updateLastPlayer(EntityPlayer lastUpdatedPlayer) {
         if (lastUpdatedPlayer != null) {
-            Bukkit.getPluginManager().callEvent(
-                    new NPCLinkToPlayerEvent(((NPCHolder) tracker).getNPC(), lastUpdatedPlayer.getBukkitEntity()));
+            Bukkit.getPluginManager().callEvent(new NPCLinkToPlayerEvent(((NPCHolder) tracker).getNPC(),
+                    lastUpdatedPlayer.getBukkitEntity(), !Bukkit.isPrimaryThread()));
             lastUpdatedPlayer = null;
         }
     }
@@ -119,6 +121,11 @@ public class PlayerlistTrackerEntry extends EntityTrackerEntry {
             Bukkit.getPluginManager().callEvent(event);
             if (event.isCancelled())
                 return;
+            Integer trackingRange = npc.data().get(NPC.Metadata.TRACKING_RANGE);
+            if (trackingRange != null && npc.data().get("last-tracking-range", -1) != b) {
+                b = trackingRange;
+                npc.data().set("last-tracking-range", trackingRange);
+            }
         }
         super.updatePlayer(entityplayer);
     }
@@ -156,10 +163,13 @@ public class PlayerlistTrackerEntry extends EntityTrackerEntry {
             } catch (Throwable e) {
                 return null;
             }
-            return delegate.keySet().stream().map(p -> p.getBukkitEntity()).collect(Collectors.toSet());
-        } else {
-            return tracker.trackedPlayers.stream().map(p -> p.getBukkitEntity()).collect(Collectors.toSet());
-        }
+            return delegate.keySet().stream()
+                    .map((Function<? super EntityPlayer, ? extends CraftPlayer>) EntityPlayer::getBukkitEntity)
+                    .collect(Collectors.toSet());
+        } else
+            return tracker.trackedPlayers.stream()
+                    .map((Function<? super EntityPlayer, ? extends CraftPlayer>) EntityPlayer::getBukkitEntity)
+                    .collect(Collectors.toSet());
     }
 
     private static boolean getU(EntityTrackerEntry entry) {

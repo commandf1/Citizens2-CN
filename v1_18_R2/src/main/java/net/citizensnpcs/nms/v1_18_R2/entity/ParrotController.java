@@ -17,6 +17,7 @@ import net.citizensnpcs.util.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
@@ -24,6 +25,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.control.FlyingMoveControl;
 import net.minecraft.world.entity.animal.Parrot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.vehicle.AbstractMinecart;
@@ -54,6 +56,14 @@ public class ParrotController extends MobEntityController {
         public EntityParrotNPC(EntityType<? extends Parrot> types, Level level, NPC npc) {
             super(types, level);
             this.npc = (CitizensNPC) npc;
+            if (npc != null) {
+                this.moveControl = new FlyingMoveControl(this, 10, true);
+            }
+        }
+
+        @Override
+        public boolean broadcastToPlayer(ServerPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.broadcastToPlayer(player));
         }
 
         @Override

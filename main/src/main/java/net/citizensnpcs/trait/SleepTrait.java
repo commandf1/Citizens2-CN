@@ -2,12 +2,14 @@ package net.citizensnpcs.trait;
 
 import org.bukkit.Location;
 import org.bukkit.block.Bed;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 
 import net.citizensnpcs.api.persistence.Persist;
 import net.citizensnpcs.api.trait.Trait;
 import net.citizensnpcs.api.trait.TraitName;
+import net.citizensnpcs.trait.EntityPoseTrait.EntityPose;
 import net.citizensnpcs.util.NMS;
 
 @TraitName("sleeptrait")
@@ -22,6 +24,7 @@ public class SleepTrait extends Trait {
 
     @Override
     public void onDespawn() {
+        npc.getOrAddTrait(EntityPoseTrait.class).setPose(null);
         sleeping = false;
     }
 
@@ -36,31 +39,25 @@ public class SleepTrait extends Trait {
             }
             return;
         }
-        if (SUPPORT_BLOCKDATA == null) {
-            try {
-                SUPPORT_BLOCKDATA = true;
-                at.getBlock().getBlockData();
-            } catch (NoSuchMethodError e) {
-                SUPPORT_BLOCKDATA = false;
-            }
-        }
+        if (sleeping)
+            return;
         if (npc.getEntity() instanceof Player) {
             Player player = (Player) npc.getEntity();
-            if (!SUPPORT_BLOCKSTATE) {
-                NMS.sleep(player, true);
-            } else {
+            if (SUPPORT_BLOCKDATA) {
                 try {
-                    if (SUPPORT_BLOCKDATA && at.getBlock().getBlockData() instanceof Bed
-                            || at.getBlock().getState() instanceof Bed) {
+                    if (at.getBlock().getBlockData() instanceof Bed || at.getBlock().getState() instanceof Bed) {
                         player.sleep(at, true);
                     } else {
                         NMS.sleep(player, true);
                     }
                 } catch (Throwable t) {
-                    SUPPORT_BLOCKSTATE = false;
+                    SUPPORT_BLOCKDATA = false;
                     NMS.sleep(player, true);
                 }
+            } else {
+                NMS.sleep(player, true);
             }
+            npc.getOrAddTrait(EntityPoseTrait.class).setPose(EntityPose.SLEEPING);
             sleeping = true;
         } else if (npc.getEntity() instanceof Villager) {
             sleeping = ((Villager) npc.getEntity()).sleep(at);
@@ -73,6 +70,7 @@ public class SleepTrait extends Trait {
     }
 
     private void wakeup() {
+        npc.getOrAddTrait(EntityPoseTrait.class).setPose(null);
         if (npc.getEntity() instanceof Player) {
             NMS.sleep((Player) npc.getEntity(), false);
         } else if (npc.getEntity() instanceof Villager) {
@@ -82,5 +80,12 @@ public class SleepTrait extends Trait {
     }
 
     private static Boolean SUPPORT_BLOCKDATA = null;
-    private static boolean SUPPORT_BLOCKSTATE = true;
+    static {
+        try {
+            Block.class.getMethod("getBlockData");
+            SUPPORT_BLOCKDATA = true;
+        } catch (NoSuchMethodException | SecurityException e) {
+            SUPPORT_BLOCKDATA = false;
+        }
+    }
 }

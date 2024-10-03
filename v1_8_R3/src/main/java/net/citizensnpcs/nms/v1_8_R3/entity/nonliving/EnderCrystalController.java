@@ -12,9 +12,11 @@ import net.citizensnpcs.nms.v1_8_R3.entity.MobEntityController;
 import net.citizensnpcs.nms.v1_8_R3.util.NMSBoundingBox;
 import net.citizensnpcs.npc.CitizensNPC;
 import net.citizensnpcs.npc.ai.NPCHolder;
+import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.Util;
 import net.minecraft.server.v1_8_R3.AxisAlignedBB;
 import net.minecraft.server.v1_8_R3.EntityEnderCrystal;
+import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.NBTTagCompound;
 import net.minecraft.server.v1_8_R3.World;
 
@@ -57,6 +59,16 @@ public class EnderCrystalController extends MobEntityController {
         @Override
         public void a(AxisAlignedBB bb) {
             super.a(NMSBoundingBox.makeBB(npc, bb));
+        }
+
+        @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
+        }
+
+        @Override
+        public boolean aL() {
+            return npc == null ? super.aL() : npc.isPushableByFluids();
         }
 
         @Override

@@ -6,15 +6,13 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import com.google.common.base.Preconditions;
-
-import net.citizensnpcs.Settings.Setting;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.util.NMS;
 
@@ -40,7 +38,7 @@ public class TabListRemover {
      *            The player.
      */
     public void cancelPackets(Player player) {
-        Preconditions.checkNotNull(player);
+        Objects.requireNonNull(player);
 
         PlayerEntry entry = pending.remove(player.getUniqueId());
         if (entry == null)
@@ -60,8 +58,8 @@ public class TabListRemover {
      *            The skinnable entity.
      */
     public void cancelPackets(Player player, SkinnableEntity skinnable) {
-        Preconditions.checkNotNull(player);
-        Preconditions.checkNotNull(skinnable);
+        Objects.requireNonNull(player);
+        Objects.requireNonNull(skinnable);
 
         PlayerEntry entry = pending.get(player.getUniqueId());
         if (entry == null)
@@ -93,8 +91,8 @@ public class TabListRemover {
      *            The entity to remove.
      */
     public void sendPacket(Player player, SkinnableEntity entity) {
-        Preconditions.checkNotNull(player);
-        Preconditions.checkNotNull(entity);
+        Objects.requireNonNull(player);
+        Objects.requireNonNull(entity);
 
         PlayerEntry entry = getEntry(player);
 
@@ -113,38 +111,33 @@ public class TabListRemover {
     private class Sender implements Runnable {
         @Override
         public void run() {
-            int maxPacketEntries = Setting.MAX_PACKET_ENTRIES.asInt();
+            int maxPacketEntries = 15;
 
             Iterator<Map.Entry<UUID, PlayerEntry>> entryIterator = pending.entrySet().iterator();
             while (entryIterator.hasNext()) {
                 Map.Entry<UUID, PlayerEntry> mapEntry = entryIterator.next();
                 PlayerEntry entry = mapEntry.getValue();
-
+                if (!entry.player.isOnline()) {
+                    entryIterator.remove();
+                    continue;
+                }
                 int listSize = Math.min(maxPacketEntries, entry.toRemove.size());
-                boolean sendAll = listSize == entry.toRemove.size();
 
-                List<SkinnableEntity> skinnableList = new ArrayList<>(listSize);
+                List<Player> skinnableList = new ArrayList<>(listSize);
 
                 int i = 0;
-                Iterator<SkinnableEntity> skinIterator = entry.toRemove.iterator();
-                while (skinIterator.hasNext()) {
-                    if (i >= maxPacketEntries) {
+                for (Iterator<SkinnableEntity> skinIterator = entry.toRemove.iterator(); skinIterator.hasNext();) {
+                    if (i >= maxPacketEntries)
                         break;
-                    }
-                    SkinnableEntity skinnable = skinIterator.next();
-                    skinnableList.add(skinnable);
 
+                    SkinnableEntity next = skinIterator.next();
+                    skinnableList.add(next.getBukkitEntity());
+                    next.getSkinTracker().notifyRemovePacketSent(entry.player.getUniqueId());
                     skinIterator.remove();
                     i++;
                 }
-                if (entry.player.isOnline()) {
-                    NMS.sendTabListRemove(entry.player, skinnableList);
-                }
-                // notify skin trackers that a remove packet has been sent to a player
-                for (SkinnableEntity entity : skinnableList) {
-                    entity.getSkinTracker().notifyRemovePacketSent(entry.player.getUniqueId());
-                }
-                if (sendAll) {
+                NMS.sendTabListRemove(entry.player, skinnableList);
+                if (entry.toRemove.isEmpty()) {
                     entryIterator.remove();
                 }
             }

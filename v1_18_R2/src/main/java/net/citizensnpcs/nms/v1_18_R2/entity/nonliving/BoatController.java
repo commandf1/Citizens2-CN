@@ -13,6 +13,7 @@ import net.citizensnpcs.nms.v1_18_R2.util.NMSBoundingBox;
 import net.citizensnpcs.nms.v1_18_R2.util.NMSImpl;
 import net.citizensnpcs.npc.CitizensNPC;
 import net.citizensnpcs.npc.ai.NPCHolder;
+import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -55,9 +56,7 @@ public class BoatController extends MobEntityController {
         private Status aE;
         private Status aF;
         private double ap;
-        private double ar;
         private final CitizensNPC npc;
-
         public EntityBoatNPC(EntityType<? extends Boat> types, Level level) {
             this(types, level, null);
         }
@@ -65,6 +64,11 @@ public class BoatController extends MobEntityController {
         public EntityBoatNPC(EntityType<? extends Boat> types, Level level, NPC npc) {
             super(types, level);
             this.npc = (CitizensNPC) npc;
+        }
+
+        @Override
+        public boolean broadcastToPlayer(ServerPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.broadcastToPlayer(player));
         }
 
         @Override
@@ -182,7 +186,18 @@ public class BoatController extends MobEntityController {
         @Override
         public void tick() {
             if (npc != null) {
+                baseTick();
+                if (getControllingPassenger() instanceof NPCHolder
+                        && ((NPCHolder) getControllingPassenger()).getNPC().getNavigator().isNavigating()) {
+                    setDeltaMovement(getControllingPassenger().getDeltaMovement().multiply(20, 0, 20));
+                }
                 npc.update();
+                if (getHurtTime() > 0) {
+                    setHurtTime(getHurtTime() - 1);
+                }
+                if (getDamage() > 0.0F) {
+                    setDamage(getDamage() - 1.0F);
+                }
                 this.aF = this.aE;
                 aE = getStatus();
                 double d1 = isNoGravity() ? 0.0D : -0.04D;
@@ -213,16 +228,13 @@ public class BoatController extends MobEntityController {
                     }
                     Vec3 vec3d = getDeltaMovement();
                     setDeltaMovement(vec3d.x * this.ap, vec3d.y + d1, vec3d.z * this.ap);
-                    this.ar *= this.ap;
                     if (d2 > 0.0D) {
                         Vec3 vec3d1 = getDeltaMovement();
                         setDeltaMovement(vec3d1.x, vec3d1.y + d2 * 0.0615D, vec3d1.z);
                     }
                 }
                 move(MoverType.SELF, getDeltaMovement());
-                if (isVehicle()) {
-                    setYRot((float) (getYRot() + this.ar));
-                }
+                checkInsideBlocks();
             } else {
                 super.tick();
             }

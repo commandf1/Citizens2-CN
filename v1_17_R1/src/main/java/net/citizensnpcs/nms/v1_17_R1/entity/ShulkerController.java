@@ -16,6 +16,7 @@ import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.tags.Tag;
 import net.minecraft.world.damagesource.DamageSource;
@@ -59,6 +60,11 @@ public class ShulkerController extends MobEntityController {
             if (npc == null || npc.useMinecraftAI()) {
                 super.aiStep();
             }
+        }
+
+        @Override
+        public boolean broadcastToPlayer(ServerPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.broadcastToPlayer(player));
         }
 
         @Override
@@ -200,15 +206,16 @@ public class ShulkerController extends MobEntityController {
         }
 
         @Override
+        protected boolean teleportSomewhere() {
+            return npc == null || npc.useMinecraftAI() ? super.teleportSomewhere() : false;
+        }
+
+        @Override
         public void tick() {
+            super.tick();
             if (npc != null) {
                 NMSImpl.updateMinecraftAIState(npc, this);
-                if (npc.useMinecraftAI()) {
-                    super.tick();
-                }
                 npc.update();
-            } else {
-                super.tick();
             }
         }
 

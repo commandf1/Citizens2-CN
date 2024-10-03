@@ -18,6 +18,7 @@ import net.citizensnpcs.nms.v1_18_R2.util.NMSBoundingBox;
 import net.citizensnpcs.nms.v1_18_R2.util.NMSImpl;
 import net.citizensnpcs.npc.CitizensNPC;
 import net.citizensnpcs.npc.ai.NPCHolder;
+import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -58,6 +59,11 @@ public class FishingHookController extends MobEntityController {
                     new GameProfile(UUID.randomUUID(), "dummyfishhook")) {
             }, level, 0, 0);
             this.npc = (CitizensNPC) npc;
+        }
+
+        @Override
+        public boolean broadcastToPlayer(ServerPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.broadcastToPlayer(player));
         }
 
         @Override
@@ -129,10 +135,10 @@ public class FishingHookController extends MobEntityController {
         @Override
         public void tick() {
             if (npc != null) {
-                ((ServerPlayer) getPlayerOwner()).setHealth(20F);
+                getPlayerOwner().setHealth(20F);
                 getPlayerOwner().unsetRemoved();
-                ((ServerPlayer) getPlayerOwner()).getInventory().items.set(
-                        ((ServerPlayer) getPlayerOwner()).getInventory().selected, new ItemStack(Items.FISHING_ROD, 1));
+                getPlayerOwner().getInventory().items.set(getPlayerOwner().getInventory().selected,
+                        new ItemStack(Items.FISHING_ROD, 1));
                 NMSImpl.setLife(this, 0);
                 npc.update();
             } else {

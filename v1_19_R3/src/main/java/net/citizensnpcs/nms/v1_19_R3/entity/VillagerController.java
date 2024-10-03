@@ -19,6 +19,7 @@ import net.minecraft.core.PositionImpl;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
@@ -68,6 +69,11 @@ public class VillagerController extends MobEntityController {
         }
 
         @Override
+        public boolean broadcastToPlayer(ServerPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.broadcastToPlayer(player));
+        }
+
+        @Override
         protected boolean canRide(Entity entity) {
             if (npc != null && (entity instanceof Boat || entity instanceof AbstractMinecart))
                 return !npc.isProtected();
@@ -103,9 +109,6 @@ public class VillagerController extends MobEntityController {
             super.customServerAiStep();
             if (npc != null) {
                 npc.update();
-                if (npc.data().get(NPC.Metadata.RESET_PITCH_ON_TICK, true)) {
-                    NMS.setPitch(getBukkitEntity(), 0);
-                }
             }
         }
 

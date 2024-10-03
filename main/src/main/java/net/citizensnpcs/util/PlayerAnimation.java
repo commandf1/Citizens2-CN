@@ -1,12 +1,10 @@
 package net.citizensnpcs.util;
 
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -18,9 +16,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import net.citizensnpcs.api.CitizensAPI;
-import net.citizensnpcs.api.npc.MemoryNPCDataStore;
 import net.citizensnpcs.api.npc.NPC;
-import net.citizensnpcs.api.npc.NPCRegistry;
 import net.citizensnpcs.npc.ai.NPCHolder;
 import net.citizensnpcs.trait.ArmorStandTrait;
 import net.citizensnpcs.trait.SitTrait;
@@ -51,19 +47,7 @@ public enum PlayerAnimation {
     }
 
     public void play(Player from, int radius) {
-        play(from, () -> {
-            Location loc = from.getLocation();
-            Location cloc = new Location(null, 0, 0, 0);
-            List<Player> to = Lists.newArrayList();
-            for (Player player : CitizensAPI.getLocationLookup().getNearbyPlayers(loc, radius)) {
-                if (loc.getWorld() != player.getWorld() || !player.canSee(from)
-                        || loc.distance(player.getLocation(cloc)) > radius) {
-                    continue;
-                }
-                to.add(player);
-            }
-            return to;
-        });
+        play(from, () -> Lists.newArrayList(CitizensAPI.getLocationLookup().getNearbyVisiblePlayers(from, radius)));
     }
 
     public void play(Player player, Iterable<Player> to) {
@@ -81,11 +65,7 @@ public enum PlayerAnimation {
                 return;
             }
             player.setMetadata("citizens.sitting", new FixedMetadataValue(CitizensAPI.getPlugin(), true));
-            NPCRegistry registry = CitizensAPI.getNamedNPCRegistry("PlayerAnimationImpl");
-            if (registry == null) {
-                registry = CitizensAPI.createNamedNPCRegistry("PlayerAnimationImpl", new MemoryNPCDataStore());
-            }
-            final NPC holder = registry.createNPC(EntityType.ARMOR_STAND, "");
+            final NPC holder = CitizensAPI.getTemporaryNPCRegistry().createNPC(EntityType.ARMOR_STAND, "");
             holder.getOrAddTrait(ArmorStandTrait.class).setAsPointEntity();
             holder.spawn(player.getLocation());
             new BukkitRunnable() {

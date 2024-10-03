@@ -2,6 +2,7 @@ package net.citizensnpcs;
 
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Objects;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -65,8 +66,8 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
@@ -111,7 +112,7 @@ import net.citizensnpcs.trait.ClickRedirectTrait;
 import net.citizensnpcs.trait.CommandTrait;
 import net.citizensnpcs.trait.Controllable;
 import net.citizensnpcs.trait.CurrentLocation;
-import net.citizensnpcs.trait.HologramTrait;
+import net.citizensnpcs.trait.HologramTrait.HologramRenderer;
 import net.citizensnpcs.trait.ShopTrait;
 import net.citizensnpcs.trait.versioned.SnowmanTrait;
 import net.citizensnpcs.util.ChunkCoord;
@@ -221,7 +222,7 @@ public class EventListen implements Listener {
     }
 
     private Iterable<NPC> getAllNPCs() {
-        return Iterables.filter(Iterables.concat(CitizensAPI.getNPCRegistries()), Predicates.notNull());
+        return Iterables.filter(Iterables.concat(CitizensAPI.getNPCRegistries()), Objects::nonNull);
     }
 
     void loadNPCs(ChunkEvent event) {
@@ -455,6 +456,7 @@ public class EventListen implements Listener {
 
     @EventHandler
     public void onNPCKnockback(NPCKnockbackEvent event) {
+        event.setCancelled(event.getNPC().isProtected());
         if (event.getNPC().data().has(NPC.Metadata.KNOCKBACK)) {
             event.setCancelled(!event.getNPC().data().get(NPC.Metadata.KNOCKBACK, true));
         }
@@ -463,37 +465,29 @@ public class EventListen implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onNPCLinkToPlayer(NPCLinkToPlayerEvent event) {
         NPC npc = event.getNPC();
+        NMS.markPoseDirty(npc.getEntity());
         if (npc.getEntity() instanceof SkinnableEntity) {
             SkinnableEntity skinnable = (SkinnableEntity) npc.getEntity();
             if (skinnable.getSkinTracker().getSkin() != null) {
                 skinnable.getSkinTracker().getSkin().apply(skinnable);
             }
-        }
-        if (npc.isSpawned() && npc.getEntity().getType() == EntityType.PLAYER) {
             onNPCPlayerLinkToPlayer(event);
         }
-        ClickRedirectTrait crt = npc.getTraitNullable(ClickRedirectTrait.class);
-        if (crt != null) {
-            HologramTrait ht = crt.getRedirectNPC().getTraitNullable(HologramTrait.class);
-            if (ht != null) {
-                Bukkit.getScheduler().scheduleSyncDelayedTask(CitizensAPI.getPlugin(),
-                        () -> ht.onHologramSeenByPlayer(npc, event.getPlayer()), 2);
-            }
+        if (npc.data().has(NPC.Metadata.HOLOGRAM_RENDERER)) {
+            HologramRenderer hr = npc.data().get(NPC.Metadata.HOLOGRAM_RENDERER);
+            Bukkit.getScheduler().scheduleSyncDelayedTask(CitizensAPI.getPlugin(),
+                    () -> hr.onSeenByPlayer(npc, event.getPlayer()), 2);
         }
     }
 
     private void onNPCPlayerLinkToPlayer(NPCLinkToPlayerEvent event) {
         Entity tracker = event.getNPC().getEntity();
-        Bukkit.getScheduler().scheduleSyncDelayedTask(CitizensAPI.getPlugin(), () -> {
-            if (!tracker.isValid() || !event.getPlayer().isValid())
-                return;
-
-            NMS.sendPositionUpdateNearby(tracker, false, null, null, NMS.getHeadYaw(tracker));
-        }, Setting.TABLIST_REMOVE_PACKET_DELAY.asTicks() + 1);
         boolean resetYaw = event.getNPC().data().get(NPC.Metadata.RESET_YAW_ON_SPAWN,
                 Setting.RESET_YAW_ON_SPAWN.asBoolean());
         boolean sendTabRemove = NMS.sendTabListAdd(event.getPlayer(), (Player) tracker);
-        if (!sendTabRemove || !Setting.DISABLE_TABLIST.asBoolean()) {
+        if (!sendTabRemove || !event.getNPC().shouldRemoveFromTabList()) {
+            NMS.sendPositionUpdate(tracker, ImmutableList.of(event.getPlayer()), false, null, null,
+                    NMS.getHeadYaw(tracker));
             if (resetYaw) {
                 Bukkit.getScheduler().scheduleSyncDelayedTask(CitizensAPI.getPlugin(),
                         () -> PlayerAnimation.ARM_SWING.play((Player) tracker, event.getPlayer()));
@@ -505,6 +499,8 @@ public class EventListen implements Listener {
                 return;
 
             NMS.sendTabListRemove(event.getPlayer(), (Player) tracker);
+            NMS.sendPositionUpdate(tracker, ImmutableList.of(event.getPlayer()), false, null, null,
+                    NMS.getHeadYaw(tracker));
             if (resetYaw) {
                 PlayerAnimation.ARM_SWING.play((Player) tracker, event.getPlayer());
             }
@@ -567,7 +563,7 @@ public class EventListen implements Listener {
         if (npc == null)
             return;
 
-        if (npc.requiresNameHologram()) {
+        if (npc.requiresNameHologram() && event.getDeathMessage() != null) {
             event.setDeathMessage(event.getDeathMessage().replace(event.getEntity().getName(), npc.getFullName()));
         }
     }
@@ -874,6 +870,9 @@ public class EventListen implements Listener {
                     Entity pushedBy = (Entity) getPushedBy.invoke(event);
                     Vector vector = (Vector) getAcceleration.invoke(event);
                     NPCPushEvent push = new NPCPushEvent(npc, vector, pushedBy);
+                    if (pushedBy == null && !npc.data().get(NPC.Metadata.COLLIDABLE, !npc.isProtected())) {
+                        push.setCancelled(true);
+                    }
                     Bukkit.getPluginManager().callEvent(push);
                     ((Cancellable) event).setCancelled(push.isCancelled());
                 } catch (Throwable ex) {

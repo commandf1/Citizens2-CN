@@ -21,6 +21,7 @@ import net.minecraft.server.v1_16_R3.DamageSource;
 import net.minecraft.server.v1_16_R3.Entity;
 import net.minecraft.server.v1_16_R3.EntityBoat;
 import net.minecraft.server.v1_16_R3.EntityMinecartAbstract;
+import net.minecraft.server.v1_16_R3.EntityPlayer;
 import net.minecraft.server.v1_16_R3.EntitySnowman;
 import net.minecraft.server.v1_16_R3.EntityTypes;
 import net.minecraft.server.v1_16_R3.EnumPistonReaction;
@@ -64,6 +65,11 @@ public class SnowmanController extends MobEntityController {
             if (npc == null || !npc.isFlyable()) {
                 super.a(d0, flag, block, blockposition);
             }
+        }
+
+        @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
         }
 
         @Override

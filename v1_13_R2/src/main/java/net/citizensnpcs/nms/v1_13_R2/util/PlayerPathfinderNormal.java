@@ -1,6 +1,6 @@
 package net.citizensnpcs.nms.v1_13_R2.util;
 
-import java.lang.reflect.Method;
+import java.lang.invoke.MethodHandle;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -232,7 +232,7 @@ public class PlayerPathfinderNormal extends PlayerPathfinderAbstract {
                 var8.m = var12;
                 var8.l = Math.max(var8.l, var13);
             }
-            if ((var12 != PathType.WALKABLE)) {
+            if (var12 != PathType.WALKABLE) {
                 if (var8 == null && var4 > 0 && var12 != PathType.FENCE && var12 != PathType.TRAPDOOR) {
                     var8 = this.a(var1, var2 + 1, var3, var4 - 1, var5, var7);
                     if (var8 != null && (var8.m == PathType.OPEN || var8.m == PathType.WALKABLE)
@@ -450,17 +450,18 @@ public class PlayerPathfinderNormal extends PlayerPathfinderAbstract {
             try {
                 VoxelShape var3 = (VoxelShape) GET_COLLISION_SHAPE.invoke(var0.getType(var2), var0, var2);
                 return var2.getY() + ((Boolean) IS_EMPTY.invoke(var3) ? 0.0D : var3.c(EnumAxis.Y));
-            } catch (Exception ex2) {
+            } catch (Throwable ex2) {
                 ex2.printStackTrace();
                 return 0;
             }
         }
     }
 
-    private static final Method BLOCK_POSITION_B_C = NMS.getMethod(BlockPosition.PooledBlockPosition.class, "f", false,
-            int.class, int.class, int.class);
-    private static final Method GET_COLLISION_SHAPE = NMS.getMethod(IBlockData.class, "h", false, IBlockAccess.class,
+    private static final MethodHandle BLOCK_POSITION_B_C = NMS.getMethodHandle(BlockPosition.PooledBlockPosition.class,
+            "f", false, int.class, int.class, int.class);
+    private static final MethodHandle GET_COLLISION_SHAPE = NMS.getMethodHandle(IBlockData.class, "h", false,
+            IBlockAccess.class, BlockPosition.class);
+    private static final MethodHandle GET_FLUID = NMS.getMethodHandle(IBlockAccess.class, "b", false,
             BlockPosition.class);
-    private static final Method GET_FLUID = NMS.getMethod(IBlockAccess.class, "b", false, BlockPosition.class);
-    private static final Method IS_EMPTY = NMS.getMethod(VoxelShape.class, "b", false);
+    private static final MethodHandle IS_EMPTY = NMS.getMethodHandle(VoxelShape.class, "b", false);
 }

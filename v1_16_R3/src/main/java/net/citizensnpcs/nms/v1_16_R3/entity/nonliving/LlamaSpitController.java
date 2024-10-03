@@ -17,10 +17,12 @@ import net.citizensnpcs.nms.v1_16_R3.util.NMSImpl;
 import net.citizensnpcs.npc.AbstractEntityController;
 import net.citizensnpcs.npc.CitizensNPC;
 import net.citizensnpcs.npc.ai.NPCHolder;
+import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.Util;
 import net.minecraft.server.v1_16_R3.AxisAlignedBB;
 import net.minecraft.server.v1_16_R3.EntityLlama;
 import net.minecraft.server.v1_16_R3.EntityLlamaSpit;
+import net.minecraft.server.v1_16_R3.EntityPlayer;
 import net.minecraft.server.v1_16_R3.EntityTypes;
 import net.minecraft.server.v1_16_R3.EnumPistonReaction;
 import net.minecraft.server.v1_16_R3.FluidType;
@@ -69,6 +71,11 @@ public class LlamaSpitController extends AbstractEntityController {
         @Override
         public void a(AxisAlignedBB bb) {
             super.a(NMSBoundingBox.makeBB(npc, bb));
+        }
+
+        @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
         }
 
         @Override

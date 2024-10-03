@@ -18,6 +18,7 @@ import net.citizensnpcs.api.gui.Menu;
 import net.citizensnpcs.api.gui.MenuContext;
 import net.citizensnpcs.api.persistence.Persist;
 import net.citizensnpcs.api.util.Placeholders;
+import net.citizensnpcs.util.InventoryMultiplexer;
 import net.citizensnpcs.util.Util;
 import net.milkbowl.vault.permission.Permission;
 
@@ -46,12 +47,12 @@ public class PermissionAction extends NPCShopAction {
     }
 
     @Override
-    public int getMaxRepeats(Entity entity) {
+    public int getMaxRepeats(Entity entity, InventoryMultiplexer inventory) {
         return -1;
     }
 
     @Override
-    public Transaction grant(Entity entity, int repeats) {
+    public Transaction grant(Entity entity, InventoryMultiplexer inventory, int repeats) {
         if (!(entity instanceof Player))
             return Transaction.fail();
         Player player = (Player) entity;
@@ -68,7 +69,7 @@ public class PermissionAction extends NPCShopAction {
     }
 
     @Override
-    public Transaction take(Entity entity, int repeats) {
+    public Transaction take(Entity entity, InventoryMultiplexer inventory, int repeats) {
         if (!(entity instanceof Player))
             return Transaction.fail();
         Player player = (Player) entity;
@@ -158,7 +159,8 @@ public class PermissionAction extends NPCShopAction {
         public ItemStack createMenuItem(NPCShopAction previous) {
             if (supported == null) {
                 try {
-                    supported = Bukkit.getServicesManager().getRegistration(Permission.class).getProvider() != null;
+                    supported = Bukkit.getServicesManager().getRegistration(Permission.class) != null
+                            && Bukkit.getServicesManager().getRegistration(Permission.class).getProvider() != null;
                 } catch (Throwable t) {
                     supported = false;
                 }

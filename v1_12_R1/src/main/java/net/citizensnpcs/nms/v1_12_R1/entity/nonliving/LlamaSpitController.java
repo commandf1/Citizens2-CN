@@ -15,10 +15,12 @@ import net.citizensnpcs.nms.v1_12_R1.util.NMSBoundingBox;
 import net.citizensnpcs.npc.AbstractEntityController;
 import net.citizensnpcs.npc.CitizensNPC;
 import net.citizensnpcs.npc.ai.NPCHolder;
+import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.Util;
 import net.minecraft.server.v1_12_R1.AxisAlignedBB;
 import net.minecraft.server.v1_12_R1.EntityLlama;
 import net.minecraft.server.v1_12_R1.EntityLlamaSpit;
+import net.minecraft.server.v1_12_R1.EntityPlayer;
 import net.minecraft.server.v1_12_R1.EnumPistonReaction;
 import net.minecraft.server.v1_12_R1.NBTTagCompound;
 import net.minecraft.server.v1_12_R1.World;
@@ -65,6 +67,11 @@ public class LlamaSpitController extends AbstractEntityController {
         }
 
         @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
+        }
+
+        @Override
         public void B_() {
             if (npc != null) {
                 npc.update();
@@ -74,6 +81,11 @@ public class LlamaSpitController extends AbstractEntityController {
             } else {
                 super.B_();
             }
+        }
+
+        @Override
+        public boolean bo() {
+            return npc == null ? super.bo() : npc.isPushableByFluids();
         }
 
         @Override

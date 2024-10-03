@@ -17,6 +17,7 @@ import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.tags.Tag;
 import net.minecraft.world.damagesource.DamageSource;
@@ -61,6 +62,11 @@ public class SlimeController extends MobEntityController {
                 this.oldMoveController = this.moveControl;
                 this.moveControl = new EntityMoveControl(this);
             }
+        }
+
+        @Override
+        public boolean broadcastToPlayer(ServerPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.broadcastToPlayer(player));
         }
 
         @Override

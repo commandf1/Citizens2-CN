@@ -1,7 +1,12 @@
 package net.citizensnpcs.trait;
 
+import java.util.Map;
+
 import org.bukkit.DyeColor;
 import org.bukkit.entity.Wolf;
+import org.bukkit.entity.Wolf.Variant;
+
+import com.google.common.collect.Maps;
 
 import net.citizensnpcs.api.persistence.Persist;
 import net.citizensnpcs.api.trait.Trait;
@@ -14,14 +19,18 @@ import net.citizensnpcs.api.trait.TraitName;
  */
 @TraitName("wolfmodifiers")
 public class WolfModifiers extends Trait {
-    @Persist("angry")
+    @Persist
     private boolean angry;
     @Persist("collarColor")
     private DyeColor collarColor = DyeColor.RED;
-    @Persist("sitting")
+    @Persist
+    private boolean interested;
+    @Persist
     private boolean sitting;
-    @Persist("tamed")
+    @Persist
     private boolean tamed;
+    @Persist
+    private String variant;
 
     public WolfModifiers() {
         super("wolfmodifiers");
@@ -31,8 +40,16 @@ public class WolfModifiers extends Trait {
         return collarColor;
     }
 
+    public String getVariant() {
+        return variant;
+    }
+
     public boolean isAngry() {
         return angry;
+    }
+
+    public boolean isInterested() {
+        return interested;
     }
 
     public boolean isSitting() {
@@ -58,6 +75,11 @@ public class WolfModifiers extends Trait {
         updateModifiers();
     }
 
+    public void setInterested(boolean interested) {
+        this.interested = interested;
+        updateModifiers();
+    }
+
     public void setSitting(boolean sitting) {
         this.sitting = sitting;
         updateModifiers();
@@ -65,6 +87,11 @@ public class WolfModifiers extends Trait {
 
     public void setTamed(boolean tamed) {
         this.tamed = tamed;
+        updateModifiers();
+    }
+
+    public void setVariant(String variant) {
+        this.variant = variant;
         updateModifiers();
     }
 
@@ -77,7 +104,30 @@ public class WolfModifiers extends Trait {
             if (angry) {
                 wolf.setTarget(wolf);
             }
+            if (variant != null) {
+                wolf.setVariant((Variant) VARIANT_CACHE.computeIfAbsent(variant, v -> {
+                    try {
+                        return Wolf.Variant.class.getField(variant).get(null);
+                    } catch (Throwable e) {
+                        e.printStackTrace();
+                        return null;
+                    }
+                }));
+            }
             wolf.setTamed(tamed);
+            if (SUPPORT_SET_INTERESTED) {
+                wolf.setInterested(interested);
+            }
+        }
+    }
+
+    private static boolean SUPPORT_SET_INTERESTED = true;
+    private static final Map<String, Object> VARIANT_CACHE = Maps.newHashMap();
+    static {
+        try {
+            Wolf.class.getMethod("setInterested", boolean.class);
+        } catch (Throwable e) {
+            SUPPORT_SET_INTERESTED = false;
         }
     }
 }

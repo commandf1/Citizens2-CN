@@ -12,6 +12,7 @@ import org.bukkit.scoreboard.Team;
 import org.bukkit.scoreboard.Team.Option;
 import org.bukkit.scoreboard.Team.OptionStatus;
 
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import net.citizensnpcs.Settings.Setting;
@@ -40,15 +41,15 @@ public class ScoreboardTrait extends Trait {
     public ScoreboardTrait() {
         super("scoreboardtrait");
         metadata = CitizensAPI.getLocationLookup().<Boolean> registerMetadata("scoreboard", (meta, event) -> {
-            for (NPC npc : CitizensAPI.getNPCRegistry()) {
+            for (NPC npc : Iterables.concat(CitizensAPI.getNPCRegistries())) {
                 ScoreboardTrait trait = npc.getTraitNullable(ScoreboardTrait.class);
-                if (trait == null) {
+                if (trait == null)
                     continue;
-                }
+
                 Team team = trait.getTeam();
-                if (team == null || meta.has(event.getPlayer().getUniqueId(), team.getName())) {
+                if (team == null || meta.has(event.getPlayer().getUniqueId(), team.getName()))
                     continue;
-                }
+
                 NMS.sendTeamPacket(event.getPlayer(), team, 0);
                 meta.set(event.getPlayer().getUniqueId(), team.getName(), true);
             }
@@ -146,7 +147,20 @@ public class ScoreboardTrait extends Trait {
         this.color = color;
     }
 
+    public void setTags(Set<String> tags) {
+        this.tags = tags;
+    }
+
     public void update() {
+        if (SUPPORT_TAGS) {
+            try {
+                if (!npc.getEntity().getScoreboardTags().equals(tags)) {
+                    tags = Sets.newHashSet(npc.getEntity().getScoreboardTags());
+                }
+            } catch (NoSuchMethodError e) {
+                SUPPORT_TAGS = false;
+            }
+        }
         String forceVisible = npc.data().<Object> get(NPC.Metadata.NAMEPLATE_VISIBLE, true).toString();
         boolean nameVisibility = !npc.requiresNameHologram()
                 && (forceVisible.equals("true") || forceVisible.equals("hover"));
@@ -167,15 +181,6 @@ public class ScoreboardTrait extends Trait {
             lastName = npc.getEntity() instanceof Player && npc.getEntity().getName() != null
                     ? npc.getEntity().getName()
                     : npc.getUniqueId().toString();
-        }
-        if (SUPPORT_TAGS) {
-            try {
-                if (!npc.getEntity().getScoreboardTags().equals(tags)) {
-                    tags = Sets.newHashSet(npc.getEntity().getScoreboardTags());
-                }
-            } catch (NoSuchMethodError e) {
-                SUPPORT_TAGS = false;
-            }
         }
         if (SUPPORT_TEAM_SETOPTION) {
             try {
@@ -232,9 +237,9 @@ public class ScoreboardTrait extends Trait {
         if (!changed)
             return;
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player.hasMetadata("NPC")) {
+            if (player.hasMetadata("NPC"))
                 continue;
-            }
+
             if (metadata.has(player.getUniqueId(), team.getName())) {
                 NMS.sendTeamPacket(player, team, 2);
             } else {
@@ -242,6 +247,7 @@ public class ScoreboardTrait extends Trait {
                 metadata.set(player.getUniqueId(), team.getName(), true);
             }
         }
+        changed = false;
     }
 
     private static boolean SUPPORT_COLLIDABLE_SETOPTION = true;

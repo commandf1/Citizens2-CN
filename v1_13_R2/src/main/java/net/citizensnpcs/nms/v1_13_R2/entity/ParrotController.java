@@ -21,6 +21,7 @@ import net.minecraft.server.v1_13_R2.EntityBoat;
 import net.minecraft.server.v1_13_R2.EntityHuman;
 import net.minecraft.server.v1_13_R2.EntityMinecartAbstract;
 import net.minecraft.server.v1_13_R2.EntityParrot;
+import net.minecraft.server.v1_13_R2.EntityPlayer;
 import net.minecraft.server.v1_13_R2.EnumHand;
 import net.minecraft.server.v1_13_R2.EnumPistonReaction;
 import net.minecraft.server.v1_13_R2.FluidType;
@@ -68,6 +69,11 @@ public class ParrotController extends MobEntityController {
             if (npc == null || !npc.isProtected())
                 return super.a(paramEntityHuman, paramEnumHand);
             return false;
+        }
+
+        @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
         }
 
         @Override

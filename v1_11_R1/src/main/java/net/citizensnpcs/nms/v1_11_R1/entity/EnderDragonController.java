@@ -22,6 +22,7 @@ import net.minecraft.server.v1_11_R1.DamageSource;
 import net.minecraft.server.v1_11_R1.DragonControllerPhase;
 import net.minecraft.server.v1_11_R1.Entity;
 import net.minecraft.server.v1_11_R1.EntityEnderDragon;
+import net.minecraft.server.v1_11_R1.EntityPlayer;
 import net.minecraft.server.v1_11_R1.IEntitySelector;
 import net.minecraft.server.v1_11_R1.NBTTagCompound;
 import net.minecraft.server.v1_11_R1.SoundEffect;
@@ -76,8 +77,18 @@ public class EnderDragonController extends MobEntityController {
         }
 
         @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
+        }
+
+        @Override
         public int aY() {
             return NMS.getFallDistance(npc, super.aY());
+        }
+
+        @Override
+        public boolean bg() {
+            return npc == null ? super.bg() : npc.isPushableByFluids();
         }
 
         @Override
@@ -202,7 +213,7 @@ public class EnderDragonController extends MobEntityController {
                     motY *= 0.98;
                     motZ *= 0.98;
                     if (getBukkitEntity().getPassenger() == null) {
-                        yaw = Util.getDragonYaw(getBukkitEntity(), motX, motZ);
+                        yaw = Util.getYawFromVelocity(getBukkitEntity(), motX, motZ);
                     }
                     setPosition(locX + motX, locY + motY, locZ + motZ);
                 }

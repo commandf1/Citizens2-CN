@@ -11,11 +11,9 @@ import com.google.common.collect.Lists;
 
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.command.Command;
-import net.citizensnpcs.api.command.CommandConfigurable;
 import net.citizensnpcs.api.command.CommandContext;
 import net.citizensnpcs.api.command.Requirements;
 import net.citizensnpcs.api.command.exception.CommandException;
-import net.citizensnpcs.api.command.exception.NoPermissionsException;
 import net.citizensnpcs.api.event.NPCTraitCommandAttachEvent;
 import net.citizensnpcs.api.event.NPCTraitCommandDetachEvent;
 import net.citizensnpcs.api.npc.NPC;
@@ -171,7 +169,7 @@ public class TraitCommands {
             Messaging.sendTr(sender, Messages.TRAITS_REMOVED, Joiner.on(", ").join(removed));
         }
         if (failed.size() > 0) {
-            Messaging.sendTr(sender, Messages.TRAITS_FAILED_TO_CHANGE, Joiner.on(", ").join(failed));
+            Messaging.send(sender, "Failed to toggle traits", Joiner.on(", ").join(failed));
         }
     }
 }

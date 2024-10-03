@@ -28,7 +28,6 @@ import net.citizensnpcs.nms.v1_8_R3.util.NMSImpl;
 import net.citizensnpcs.nms.v1_8_R3.util.PlayerControllerJump;
 import net.citizensnpcs.nms.v1_8_R3.util.PlayerControllerMove;
 import net.citizensnpcs.nms.v1_8_R3.util.PlayerNavigation;
-import net.citizensnpcs.nms.v1_8_R3.util.PlayerlistTrackerEntry;
 import net.citizensnpcs.npc.CitizensNPC;
 import net.citizensnpcs.npc.ai.NPCHolder;
 import net.citizensnpcs.npc.skin.SkinPacketTracker;
@@ -58,6 +57,7 @@ import net.minecraft.server.v1_8_R3.WorldSettings;
 
 public class EntityHumanNPC extends EntityPlayer implements NPCHolder, SkinnableEntity {
     private PlayerControllerJump controllerJump;
+
     private PlayerControllerMove controllerMove;
     private final Map<Integer, ItemStack> equipmentCache = new HashMap<>();
     private int jumpTicks = 0;
@@ -65,7 +65,6 @@ public class EntityHumanNPC extends EntityPlayer implements NPCHolder, Skinnable
     private final CitizensNPC npc;
     private final Location packetLocationCache = new Location(null, 0, 0, 0);
     private final SkinPacketTracker skinTracker;
-    private PlayerlistTrackerEntry trackerEntry;
 
     public EntityHumanNPC(MinecraftServer minecraftServer, WorldServer world, GameProfile gameProfile,
             PlayerInteractManager playerInteractManager, NPC npc) {
@@ -90,10 +89,8 @@ public class EntityHumanNPC extends EntityPlayer implements NPCHolder, Skinnable
     }
 
     @Override
-    public boolean a(EntityPlayer entityplayer) {
-        if (npc != null && trackerEntry == null)
-            return false;
-        return super.a(entityplayer);
+    public boolean a(EntityPlayer player) {
+        return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
     }
 
     @Override
@@ -101,6 +98,11 @@ public class EntityHumanNPC extends EntityPlayer implements NPCHolder, Skinnable
         return npc == null ? super.ae()
                 : npc.data().has(NPC.Metadata.COLLIDABLE) ? npc.data().<Boolean> get(NPC.Metadata.COLLIDABLE)
                         : !npc.isProtected();
+    }
+
+    @Override
+    public boolean aL() {
+        return npc == null ? super.aL() : npc.isPushableByFluids();
     }
 
     @Override
@@ -240,7 +242,6 @@ public class EntityHumanNPC extends EntityPlayer implements NPCHolder, Skinnable
         controllerMove = new PlayerControllerMove(this);
         navigation = new PlayerNavigation(this, world);
         invulnerableTicks = 0;
-        NMS.setStepHeight(getBukkitEntity(), 1); // the default (0) breaks step climbing setSkinFlags((byte) 0xFF);
     }
 
     public boolean isNavigating() {
@@ -280,7 +281,13 @@ public class EntityHumanNPC extends EntityPlayer implements NPCHolder, Skinnable
         }
         updateAI();
         bL();
+        if (npc.useMinecraftAI()) {
+            foodData.a(this);
+        }
         if (npc.data().get(NPC.Metadata.PICKUP_ITEMS, false)) {
+            if (this.bp > 0) {
+                --this.bp;
+            }
             AxisAlignedBB axisalignedbb = null;
             if (this.vehicle != null && !this.vehicle.dead) {
                 axisalignedbb = this.getBoundingBox().a(this.vehicle.getBoundingBox()).grow(1.0, 0.0, 1.0);
@@ -351,10 +358,6 @@ public class EntityHumanNPC extends EntityPlayer implements NPCHolder, Skinnable
         npc.getOrAddTrait(SkinTrait.class).setSkinPersistent(skinName, signature, data);
     }
 
-    public void setTracked(PlayerlistTrackerEntry trackerEntry) {
-        this.trackerEntry = trackerEntry;
-    }
-
     @Override
     public void t_() {
         super.t_();
@@ -381,7 +384,7 @@ public class EntityHumanNPC extends EntityPlayer implements NPCHolder, Skinnable
         for (int slot = 0; slot < 5; slot++) {
             ItemStack equipment = getEquipment(slot);
             ItemStack cache = equipmentCache.get(slot);
-            if (((cache != null) || (equipment != null))
+            if ((cache != null || equipment != null)
                     && (cache == null ^ equipment == null || !ItemStack.matches(cache, equipment))) {
                 itemChanged = true;
                 if (cache != null) {

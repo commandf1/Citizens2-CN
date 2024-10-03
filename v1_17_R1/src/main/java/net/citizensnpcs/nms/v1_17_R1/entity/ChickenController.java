@@ -17,6 +17,7 @@ import net.citizensnpcs.util.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.tags.Tag;
 import net.minecraft.world.damagesource.DamageSource;
@@ -66,6 +67,11 @@ public class ChickenController extends MobEntityController {
                 this.eggTime = 100;
             }
             super.aiStep();
+        }
+
+        @Override
+        public boolean broadcastToPlayer(ServerPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.broadcastToPlayer(player));
         }
 
         @Override

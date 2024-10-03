@@ -16,12 +16,14 @@ import net.citizensnpcs.npc.ai.NPCHolder;
 import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.Util;
 import net.minecraft.server.v1_16_R3.AxisAlignedBB;
+import net.minecraft.server.v1_16_R3.ControllerMoveFlying;
 import net.minecraft.server.v1_16_R3.DamageSource;
 import net.minecraft.server.v1_16_R3.Entity;
 import net.minecraft.server.v1_16_R3.EntityBoat;
 import net.minecraft.server.v1_16_R3.EntityHuman;
 import net.minecraft.server.v1_16_R3.EntityMinecartAbstract;
 import net.minecraft.server.v1_16_R3.EntityParrot;
+import net.minecraft.server.v1_16_R3.EntityPlayer;
 import net.minecraft.server.v1_16_R3.EntityTypes;
 import net.minecraft.server.v1_16_R3.EnumHand;
 import net.minecraft.server.v1_16_R3.EnumInteractionResult;
@@ -53,11 +55,19 @@ public class ParrotController extends MobEntityController {
         public EntityParrotNPC(EntityTypes<? extends EntityParrot> types, World world, NPC npc) {
             super(types, world);
             this.npc = (CitizensNPC) npc;
+            if (npc != null) {
+                this.moveController = new ControllerMoveFlying(this, 10, true);
+            }
         }
 
         @Override
         public void a(AxisAlignedBB bb) {
             super.a(NMSBoundingBox.makeBB(npc, bb));
+        }
+
+        @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
         }
 
         @Override

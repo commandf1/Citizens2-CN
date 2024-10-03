@@ -66,6 +66,11 @@ public class FishingHookController extends MobEntityController {
         }
 
         @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
+        }
+
+        @Override
         public boolean b(Tag<FluidType> tag) {
             if (npc == null)
                 return super.b(tag);
