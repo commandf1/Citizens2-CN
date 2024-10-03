@@ -6,18 +6,13 @@ main: net.citizensnpcs.Citizens
 website: https://www.citizensnpcs.co
 api-version: "1.13"
 commands:
-  traitc:
-    aliases: [trc]
-    description: Configures traits
-    permission: citizens.trait.help
   trait: 
     description: Trait commands
     permission: citizens.trait.help 
   citizens: 
     description: Administration commands
     permission: citizens.citizens.help
-  npc:
-    aliases: [npc2]
+  npc: 
     description: Basic commands for all NPC-related things
     permission: citizens.npc.help
   template:

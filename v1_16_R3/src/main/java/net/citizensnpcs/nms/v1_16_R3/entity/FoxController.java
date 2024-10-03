@@ -1,5 +1,7 @@
 package net.citizensnpcs.nms.v1_16_R3.entity;
 
+import java.lang.invoke.MethodHandle;
+
 import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.v1_16_R3.CraftServer;
 import org.bukkit.craftbukkit.v1_16_R3.entity.CraftEntity;
@@ -13,6 +15,7 @@ import net.citizensnpcs.nms.v1_16_R3.util.NMSBoundingBox;
 import net.citizensnpcs.nms.v1_16_R3.util.NMSImpl;
 import net.citizensnpcs.npc.CitizensNPC;
 import net.citizensnpcs.npc.ai.NPCHolder;
+import net.citizensnpcs.trait.versioned.FoxTrait;
 import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.Util;
 import net.minecraft.server.v1_16_R3.AxisAlignedBB;
@@ -23,6 +26,7 @@ import net.minecraft.server.v1_16_R3.Entity;
 import net.minecraft.server.v1_16_R3.EntityBoat;
 import net.minecraft.server.v1_16_R3.EntityFox;
 import net.minecraft.server.v1_16_R3.EntityMinecartAbstract;
+import net.minecraft.server.v1_16_R3.EntityPlayer;
 import net.minecraft.server.v1_16_R3.EntityTypes;
 import net.minecraft.server.v1_16_R3.EnumPistonReaction;
 import net.minecraft.server.v1_16_R3.FluidType;
@@ -74,6 +78,11 @@ public class FoxController extends MobEntityController {
             if (npc == null || !npc.isFlyable()) {
                 super.a(d0, flag, block, blockposition);
             }
+        }
+
+        @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
         }
 
         @Override
@@ -202,6 +211,16 @@ public class FoxController extends MobEntityController {
             if (npc != null) {
                 NMSImpl.updateMinecraftAIState(npc, this);
                 npc.update();
+                FoxTrait ft = npc.getTraitNullable(FoxTrait.class);
+                if (ft != null) {
+                    try {
+                        SET_FACEPLANTED.invoke(this, ft.isFaceplanted());
+                    } catch (Throwable e) {
+                        e.printStackTrace();
+                    }
+                    w(ft.isInterested());
+                    u(ft.isPouncing());
+                }
             }
         }
 
@@ -211,6 +230,9 @@ public class FoxController extends MobEntityController {
                 return !npc.isProtected();
             return super.n(entity);
         }
+
+        private static final MethodHandle SET_FACEPLANTED = NMS.getMethodHandle(EntityFox.class, "x", true,
+                boolean.class);
     }
 
     public static class FoxNPC extends CraftFox implements ForwardingNPCHolder {

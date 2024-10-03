@@ -15,11 +15,11 @@ import org.bukkit.util.Vector;
 
 import com.mojang.authlib.GameProfile;
 
-import net.citizensnpcs.Settings.Setting;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.api.npc.NPC.NPCUpdate;
 import net.citizensnpcs.api.trait.trait.Inventory;
+import net.citizensnpcs.api.util.Messaging;
 import net.citizensnpcs.api.util.SpigotUtil;
 import net.citizensnpcs.nms.v1_17_R1.network.EmptyNetHandler;
 import net.citizensnpcs.nms.v1_17_R1.network.EmptyNetworkManager;
@@ -28,11 +28,11 @@ import net.citizensnpcs.nms.v1_17_R1.util.EmptyServerStatsCounter;
 import net.citizensnpcs.nms.v1_17_R1.util.MobAI;
 import net.citizensnpcs.nms.v1_17_R1.util.MobAI.ForwardingMobAI;
 import net.citizensnpcs.nms.v1_17_R1.util.NMSImpl;
-import net.citizensnpcs.nms.v1_17_R1.util.PlayerlistTracker;
 import net.citizensnpcs.npc.CitizensNPC;
 import net.citizensnpcs.npc.ai.NPCHolder;
 import net.citizensnpcs.npc.skin.SkinPacketTracker;
 import net.citizensnpcs.npc.skin.SkinnableEntity;
+import net.citizensnpcs.trait.EntityPoseTrait;
 import net.citizensnpcs.trait.Gravity;
 import net.citizensnpcs.trait.SkinTrait;
 import net.citizensnpcs.util.NMS;
@@ -42,6 +42,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.PlayerAdvancements;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerPlayerGameMode;
@@ -55,10 +56,10 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class EntityHumanNPC extends ServerPlayer implements NPCHolder, SkinnableEntity, ForwardingMobAI {
+    private PlayerAdvancements advancements;
     private MobAI ai;
     private int jumpTicks = 0;
     private final CitizensNPC npc;
-    private PlayerlistTracker playerlistTracker;
     private final SkinPacketTracker skinTracker;
     private EmptyServerStatsCounter statsCache;
 
@@ -80,10 +81,8 @@ public class EntityHumanNPC extends ServerPlayer implements NPCHolder, Skinnable
     }
 
     @Override
-    public boolean broadcastToPlayer(ServerPlayer entityplayer) {
-        if (npc != null && playerlistTracker == null)
-            return false;
-        return super.broadcastToPlayer(entityplayer);
+    public boolean broadcastToPlayer(ServerPlayer player) {
+        return NMS.shouldBroadcastToPlayer(npc, () -> super.broadcastToPlayer(player));
     }
 
     @Override
@@ -139,14 +138,18 @@ public class EntityHumanNPC extends ServerPlayer implements NPCHolder, Skinnable
         }
         ai.getJumpControl().tick();
         ai.getMoveControl().tick();
-        detectEquipmentUpdates();
         this.noPhysics = isSpectator();
         if (isSpectator()) {
             this.onGround = false;
         }
         pushEntities();
-
+        if (npc.useMinecraftAI()) {
+            foodData.tick(this);
+        }
         if (npc.data().get(NPC.Metadata.PICKUP_ITEMS, false)) {
+            if (this.takeXpDelay > 0) {
+                --this.takeXpDelay;
+            }
             AABB axisalignedbb;
             if (this.isPassenger() && !this.getVehicle().isRemoved()) {
                 axisalignedbb = this.getBoundingBox().minmax(this.getVehicle().getBoundingBox()).inflate(1.0, 0.0, 1.0);
@@ -157,6 +160,22 @@ public class EntityHumanNPC extends ServerPlayer implements NPCHolder, Skinnable
                 entity.playerTouch(this);
             }
         }
+        ++attackStrengthTicker;
+        getCooldowns().tick();
+        if (!npc.hasTrait(EntityPoseTrait.class) || npc.getTraitNullable(EntityPoseTrait.class).getPose() == null) {
+            updatePlayerPose();
+        }
+    }
+
+    @Override
+    public PlayerAdvancements getAdvancements() {
+        if (npc == null)
+            return super.getAdvancements();
+        if (advancements == null) {
+            advancements = new EmptyAdvancementDataPlayer(getServer().getFixerUpper(), getServer().getPlayerList(),
+                    this);
+        }
+        return advancements;
     }
 
     @Override
@@ -213,9 +232,10 @@ public class EntityHumanNPC extends ServerPlayer implements NPCHolder, Skinnable
 
     @Override
     public Component getTabListDisplayName() {
-        if (Setting.DISABLE_TABLIST.asBoolean())
+        if (npc != null && npc.shouldRemoveFromTabList())
             return new TextComponent("");
-        return super.getTabListDisplayName();
+        return npc != null ? (Component) Messaging.minecraftComponentFromRawMessage(npc.getRawName())
+                : super.getTabListDisplayName();
     }
 
     @Override
@@ -241,12 +261,7 @@ public class EntityHumanNPC extends ServerPlayer implements NPCHolder, Skinnable
             // swallow
         }
         this.invulnerableTime = 0;
-        NMS.setStepHeight(getBukkitEntity(), 1); // the default (0) breaks step climbing
         setSkinFlags((byte) 0xFF);
-        EmptyAdvancementDataPlayer.clear(this.getAdvancements());
-        NMSImpl.setAdvancement(this.getBukkitEntity(),
-                new EmptyAdvancementDataPlayer(minecraftServer.getFixerUpper(), minecraftServer.getPlayerList(),
-                        minecraftServer.getAdvancements(), CitizensAPI.getDataFolder().getParentFile(), this));
     }
 
     @Override
@@ -341,15 +356,12 @@ public class EntityHumanNPC extends ServerPlayer implements NPCHolder, Skinnable
         npc.getOrAddTrait(SkinTrait.class).setSkinPersistent(skinName, signature, data);
     }
 
-    public void setTracked(PlayerlistTracker tracker) {
-        this.playerlistTracker = tracker;
-    }
-
     @Override
     public void tick() {
         super.tick();
         if (npc == null)
             return;
+        detectEquipmentUpdates();
         noPhysics = isSpectator();
         Bukkit.getServer().getPluginManager().unsubscribeFromPermission("bukkit.broadcast.user", getBukkitEntity());
         updatePackets(npc.getNavigator().isNavigating());

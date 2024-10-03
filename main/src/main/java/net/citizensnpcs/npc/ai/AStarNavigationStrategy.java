@@ -5,6 +5,7 @@ import java.util.List;
 import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.util.Vector;
 
@@ -50,6 +51,7 @@ public class AStarNavigationStrategy extends AbstractPathStrategy {
         this.params = params;
         destination = dest;
         this.npc = npc;
+        planner = new AStarPlanner(params, npc.getEntity().getLocation(), destination);
     }
 
     @Override
@@ -77,19 +79,14 @@ public class AStarNavigationStrategy extends AbstractPathStrategy {
 
     @Override
     public boolean update() {
-        if (plan == null) {
-            if (planner == null) {
-                planner = new AStarPlanner(params, npc.getEntity().getLocation(), destination);
-            }
+        if (planner != null) {
             CancelReason reason = planner.tick(Setting.ASTAR_ITERATIONS_PER_TICK.asInt(),
                     Setting.MAXIMUM_ASTAR_ITERATIONS.asInt());
-            if (reason != null) {
-                setCancelReason(reason);
-            }
             plan = planner.plan;
-            if (plan != null) {
-                planner = null;
-            }
+            if (reason == null && plan == null)
+                return false;
+            setCancelReason(reason);
+            planner = null;
         }
         if (getCancelReason() != null || plan == null || plan.isComplete())
             return true;
@@ -97,18 +94,18 @@ public class AStarNavigationStrategy extends AbstractPathStrategy {
             vector = plan.getCurrentVector();
         }
         Location loc = npc.getEntity().getLocation();
-        /* Proper door movement - gets stuck on corners at times
-
-         Block block = currLoc.getWorld().getBlockAt(vector.getBlockX(), vector.getBlockY(), vector.getBlockZ());
-          if (MinecraftBlockExaminer.isDoor(block.getType())) {
-            Door door = (Door) block.getState().getData();
-            if (door.isOpen()) {
-                BlockFace targetFace = door.getFacing().getOppositeFace();
-                destVector.setX(vector.getX() + targetFace.getModX());
-                destVector.setZ(vector.getZ() + targetFace.getModZ());
-            }
-        }*/
         Location dest = Util.getCenterLocation(vector.toLocation(loc.getWorld()).getBlock());
+        /* Proper door movement - gets stuck on corners at times
+        
+        Block block = loc.getWorld().getBlockAt(vector.getBlockX(), vector.getBlockY(), vector.getBlockZ());
+         if (MinecraftBlockExaminer.isDoor(block.getType())) {
+           Door door = (Door) block.getState().getData();
+           if (door.isOpen()) {
+               BlockFace targetFace = door.getFacing().getOppositeFace();
+               dest.setX(vector.getX() + targetFace.getModX());
+               dest.setZ(vector.getZ() + targetFace.getModZ());
+           }
+        }*/
         double dX = dest.getX() - loc.getX();
         double dZ = dest.getZ() - loc.getZ();
         double dY = dest.getY() - loc.getY();
@@ -123,7 +120,7 @@ public class AStarNavigationStrategy extends AbstractPathStrategy {
         if (params.debug()) {
             npc.getEntity().getWorld().playEffect(dest, Effect.ENDER_SIGNAL, 0);
         }
-        if (npc.getEntity() instanceof LivingEntity && !npc.getEntity().getType().name().contains("ARMOR_STAND")) {
+        if (npc.getEntity() instanceof LivingEntity && npc.getEntity().getType() != EntityType.ARMOR_STAND) {
             NMS.setDestination(npc.getEntity(), dest.getX(), dest.getY(), dest.getZ(), params.speed());
         } else {
             Vector dir = dest.toVector().subtract(npc.getEntity().getLocation().toVector()).normalize().multiply(0.2);

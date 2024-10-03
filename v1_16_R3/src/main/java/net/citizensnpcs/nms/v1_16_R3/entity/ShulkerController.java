@@ -22,6 +22,7 @@ import net.minecraft.server.v1_16_R3.Entity;
 import net.minecraft.server.v1_16_R3.EntityAIBodyControl;
 import net.minecraft.server.v1_16_R3.EntityBoat;
 import net.minecraft.server.v1_16_R3.EntityMinecartAbstract;
+import net.minecraft.server.v1_16_R3.EntityPlayer;
 import net.minecraft.server.v1_16_R3.EntityShulker;
 import net.minecraft.server.v1_16_R3.EntityTypes;
 import net.minecraft.server.v1_16_R3.EnumPistonReaction;
@@ -65,6 +66,11 @@ public class ShulkerController extends MobEntityController {
             if (npc == null || !npc.isFlyable()) {
                 super.a(d0, flag, block, blockposition);
             }
+        }
+
+        @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
         }
 
         @Override
@@ -122,6 +128,11 @@ public class ShulkerController extends MobEntityController {
         @Override
         public float dJ() {
             return NMS.getJumpPower(npc, super.dJ());
+        }
+
+        @Override
+        protected boolean eK() {
+            return npc == null || npc.useMinecraftAI() ? super.eK() : false;
         }
 
         @Override
@@ -208,14 +219,10 @@ public class ShulkerController extends MobEntityController {
 
         @Override
         public void tick() {
+            super.tick();
             if (npc != null) {
                 NMSImpl.updateMinecraftAIState(npc, this);
-                if (npc.useMinecraftAI()) {
-                    super.tick();
-                }
                 npc.update();
-            } else {
-                super.tick();
             }
         }
 

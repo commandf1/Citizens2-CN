@@ -13,10 +13,12 @@ import net.citizensnpcs.nms.v1_19_R3.util.NMSBoundingBox;
 import net.citizensnpcs.nms.v1_19_R3.util.NMSImpl;
 import net.citizensnpcs.npc.CitizensNPC;
 import net.citizensnpcs.npc.ai.NPCHolder;
+import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.Util;
 import net.minecraft.core.PositionImpl;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Display.TextDisplay;
 import net.minecraft.world.entity.Entity;
@@ -47,6 +49,11 @@ public class TextDisplayController extends MobEntityController {
         public EntityTextDisplayNPC(EntityType<? extends TextDisplay> types, Level level, NPC npc) {
             super(types, level);
             this.npc = (CitizensNPC) npc;
+        }
+
+        @Override
+        public boolean broadcastToPlayer(ServerPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.broadcastToPlayer(player));
         }
 
         @Override
@@ -113,6 +120,10 @@ public class TextDisplayController extends MobEntityController {
             super.tick();
             if (npc != null) {
                 npc.update();
+                if (npc.data().has(NPC.Metadata.TEXT_DISPLAY_COMPONENT)) {
+                    setText(npc.data().get(NPC.Metadata.TEXT_DISPLAY_COMPONENT));
+                    npc.data().remove(NPC.Metadata.TEXT_DISPLAY_COMPONENT);
+                }
             }
         }
 

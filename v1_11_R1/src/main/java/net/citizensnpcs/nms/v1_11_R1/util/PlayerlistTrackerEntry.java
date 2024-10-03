@@ -4,9 +4,11 @@ import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
+import org.bukkit.craftbukkit.v1_11_R1.entity.CraftPlayer;
 
 import com.google.common.collect.ForwardingMap;
 import com.google.common.collect.ForwardingSet;
@@ -50,7 +52,7 @@ public class PlayerlistTrackerEntry extends EntityTrackerEntry {
                     @Override
                     public Boolean remove(Object conn) {
                         Boolean removed = super.remove(conn);
-                        if (removed == true) {
+                        if (removed) {
                             Bukkit.getPluginManager().callEvent(new NPCUnlinkFromPlayerEvent(
                                     ((NPCHolder) tracker).getNPC(), ((EntityPlayer) conn).getBukkitEntity()));
                         }
@@ -104,8 +106,8 @@ public class PlayerlistTrackerEntry extends EntityTrackerEntry {
 
     public void updateLastPlayer(EntityPlayer lastUpdatedPlayer) {
         if (lastUpdatedPlayer != null) {
-            Bukkit.getPluginManager().callEvent(
-                    new NPCLinkToPlayerEvent(((NPCHolder) tracker).getNPC(), lastUpdatedPlayer.getBukkitEntity()));
+            Bukkit.getPluginManager().callEvent(new NPCLinkToPlayerEvent(((NPCHolder) tracker).getNPC(),
+                    lastUpdatedPlayer.getBukkitEntity(), !Bukkit.isPrimaryThread()));
         }
     }
 
@@ -168,10 +170,13 @@ public class PlayerlistTrackerEntry extends EntityTrackerEntry {
             } catch (Throwable e) {
                 return null;
             }
-            return delegate.keySet().stream().map(p -> p.getBukkitEntity()).collect(Collectors.toSet());
-        } else {
-            return tracker.trackedPlayers.stream().map(p -> p.getBukkitEntity()).collect(Collectors.toSet());
-        }
+            return delegate.keySet().stream()
+                    .map((Function<? super EntityPlayer, ? extends CraftPlayer>) EntityPlayer::getBukkitEntity)
+                    .collect(Collectors.toSet());
+        } else
+            return tracker.trackedPlayers.stream()
+                    .map((Function<? super EntityPlayer, ? extends CraftPlayer>) EntityPlayer::getBukkitEntity)
+                    .collect(Collectors.toSet());
     }
 
     private static Entity getTracker(EntityTrackerEntry entry) {

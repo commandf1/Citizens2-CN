@@ -32,11 +32,8 @@ public class CamelTrait extends Trait {
 
     @Override
     public void run() {
-        if (npc.isSpawned() && npc.getEntity() instanceof Camel) {
-            Camel camel = (Camel) npc.getEntity();
-            if (pose != null) {
-                NMS.setCamelPose(npc.getEntity(), pose);
-            }
+        if (pose != null && npc.isSpawned() && npc.getEntity() instanceof Camel) {
+            NMS.setCamelPose(npc.getEntity(), pose);
         }
     }
 

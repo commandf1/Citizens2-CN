@@ -22,6 +22,7 @@ import net.minecraft.server.v1_12_R1.DamageSource;
 import net.minecraft.server.v1_12_R1.Entity;
 import net.minecraft.server.v1_12_R1.EntityHuman;
 import net.minecraft.server.v1_12_R1.EntityLightning;
+import net.minecraft.server.v1_12_R1.EntityPlayer;
 import net.minecraft.server.v1_12_R1.EntityVillager;
 import net.minecraft.server.v1_12_R1.EnumHand;
 import net.minecraft.server.v1_12_R1.EnumPistonReaction;
@@ -95,6 +96,11 @@ public class VillagerController extends MobEntityController {
         }
 
         @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
+        }
+
+        @Override
         public void a(float f, float f1, float f2) {
             if (npc == null || !npc.isFlyable()) {
                 super.a(f, f1, f2);
@@ -106,6 +112,11 @@ public class VillagerController extends MobEntityController {
         @Override
         public int bg() {
             return NMS.getFallDistance(npc, super.bg());
+        }
+
+        @Override
+        public boolean bo() {
+            return npc == null ? super.bo() : npc.isPushableByFluids();
         }
 
         @Override

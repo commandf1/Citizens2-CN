@@ -22,6 +22,7 @@ import net.minecraft.server.v1_11_R1.AxisAlignedBB;
 import net.minecraft.server.v1_11_R1.BlockPosition;
 import net.minecraft.server.v1_11_R1.Entity;
 import net.minecraft.server.v1_11_R1.EntityHorseMule;
+import net.minecraft.server.v1_11_R1.EntityPlayer;
 import net.minecraft.server.v1_11_R1.GenericAttributes;
 import net.minecraft.server.v1_11_R1.IBlockData;
 import net.minecraft.server.v1_11_R1.NBTTagCompound;
@@ -48,6 +49,7 @@ public class HorseMuleController extends MobEntityController {
         private double baseMovementSpeed;
 
         private final CitizensNPC npc;
+
         private boolean riding;
 
         public EntityHorseMuleNPC(World world) {
@@ -92,8 +94,18 @@ public class HorseMuleController extends MobEntityController {
         }
 
         @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
+        }
+
+        @Override
         public int aY() {
             return NMS.getFallDistance(npc, super.aY());
+        }
+
+        @Override
+        public boolean bg() {
+            return npc == null ? super.bg() : npc.isPushableByFluids();
         }
 
         @Override

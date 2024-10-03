@@ -3,6 +3,7 @@ package net.citizensnpcs.npc.skin;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
@@ -13,10 +14,9 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
-import com.google.common.base.Preconditions;
-
 import net.citizensnpcs.Settings.Setting;
 import net.citizensnpcs.api.CitizensAPI;
+import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.util.NMS;
 
 /**
@@ -40,7 +40,7 @@ public class SkinPacketTracker {
      *            The skinnable entity the instance belongs to.
      */
     public SkinPacketTracker(SkinnableEntity entity) {
-        Preconditions.checkNotNull(entity);
+        Objects.requireNonNull(entity);
 
         this.entity = entity;
         skin = Skin.get(entity);
@@ -108,9 +108,9 @@ public class SkinPacketTracker {
         Collection<? extends Player> players = Bukkit.getOnlinePlayers();
 
         for (Player player : players) {
-            if (player.hasMetadata("NPC")) {
+            if (player.hasMetadata("NPC"))
                 continue;
-            }
+
             // send packet now and later to ensure removal from player list
             NMS.sendTabListRemove(player, entity.getBukkitEntity());
             TAB_LIST_REMOVER.sendPacket(player, entity);
@@ -128,15 +128,15 @@ public class SkinPacketTracker {
                 if (!entity.getNPC().isSpawned())
                     return;
 
-                double viewDistance = Setting.NPC_SKIN_VIEW_DISTANCE.asDouble();
-                updateNearbyViewers(viewDistance);
+                updateNearbyViewers(entity.getNPC().data().get(NPC.Metadata.TRACKING_RANGE,
+                        Setting.NPC_SKIN_VIEW_DISTANCE.asInt()));
             }
         }.runTaskLater(CitizensAPI.getPlugin(), 15);
     }
 
     private void scheduleRemovePacket(PlayerEntry entry) {
         if (isRemoved || !CitizensAPI.hasImplementation() || !CitizensAPI.getPlugin().isEnabled()
-                || !shouldRemoveFromTabList())
+                || !entity.getNPC().shouldRemoveFromTabList())
             return;
 
         entry.removeTask = Bukkit.getScheduler().runTaskLater(CitizensAPI.getPlugin(),
@@ -146,10 +146,6 @@ public class SkinPacketTracker {
     private void scheduleRemovePacket(PlayerEntry entry, int count) {
         entry.removeCount = count;
         scheduleRemovePacket(entry);
-    }
-
-    private boolean shouldRemoveFromTabList() {
-        return entity.getNPC().data().get("removefromtablist", Setting.DISABLE_TABLIST.asBoolean());
     }
 
     /**
@@ -175,7 +171,7 @@ public class SkinPacketTracker {
      *            The player.
      */
     public void updateViewer(Player player) {
-        Preconditions.checkNotNull(player);
+        Objects.requireNonNull(player);
 
         if (isRemoved || player.hasMetadata("NPC"))
             return;

@@ -20,6 +20,7 @@ import net.minecraft.server.v1_11_R1.BlockPosition;
 import net.minecraft.server.v1_11_R1.Entity;
 import net.minecraft.server.v1_11_R1.EntityHuman;
 import net.minecraft.server.v1_11_R1.EntityMagmaCube;
+import net.minecraft.server.v1_11_R1.EntityPlayer;
 import net.minecraft.server.v1_11_R1.IBlockData;
 import net.minecraft.server.v1_11_R1.NBTTagCompound;
 import net.minecraft.server.v1_11_R1.SoundEffect;
@@ -70,6 +71,11 @@ public class MagmaCubeController extends MobEntityController {
         }
 
         @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
+        }
+
+        @Override
         public void A_() {
             super.A_();
             if (npc != null) {
@@ -80,6 +86,11 @@ public class MagmaCubeController extends MobEntityController {
         @Override
         public int aY() {
             return NMS.getFallDistance(npc, super.aY());
+        }
+
+        @Override
+        public boolean bg() {
+            return npc == null ? super.bg() : npc.isPushableByFluids();
         }
 
         @Override

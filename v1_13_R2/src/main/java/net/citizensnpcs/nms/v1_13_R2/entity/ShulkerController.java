@@ -1,6 +1,6 @@
 package net.citizensnpcs.nms.v1_13_R2.entity;
 
-import java.lang.reflect.Method;
+import java.lang.invoke.MethodHandle;
 
 import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.v1_13_R2.CraftServer;
@@ -23,6 +23,7 @@ import net.minecraft.server.v1_13_R2.Entity;
 import net.minecraft.server.v1_13_R2.EntityAIBodyControl;
 import net.minecraft.server.v1_13_R2.EntityBoat;
 import net.minecraft.server.v1_13_R2.EntityMinecartAbstract;
+import net.minecraft.server.v1_13_R2.EntityPlayer;
 import net.minecraft.server.v1_13_R2.EntityShulker;
 import net.minecraft.server.v1_13_R2.EnumPistonReaction;
 import net.minecraft.server.v1_13_R2.FluidType;
@@ -70,6 +71,11 @@ public class ShulkerController extends MobEntityController {
         public void a(Entity entity, float strength, double dx, double dz) {
             NMS.callKnockbackEvent(npc, strength, dx, dz, evt -> super.a(entity, (float) evt.getStrength(),
                     evt.getKnockbackVector().getX(), evt.getKnockbackVector().getZ()));
+        }
+
+        @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
         }
 
         @Override
@@ -183,6 +189,11 @@ public class ShulkerController extends MobEntityController {
         }
 
         @Override
+        protected boolean l() {
+            return npc == null || npc.useMinecraftAI() ? super.l() : false;
+        }
+
+        @Override
         public void movementTick() {
             if (npc == null) {
                 try {
@@ -220,10 +231,9 @@ public class ShulkerController extends MobEntityController {
 
         @Override
         public void tick() {
+            super.tick();
             if (npc != null) {
                 npc.update();
-            } else {
-                super.tick();
             }
         }
 
@@ -235,7 +245,7 @@ public class ShulkerController extends MobEntityController {
                 return false;
         }
 
-        private static final Method MOVEMENT_TICK = NMS.getMethod(EntityShulker.class, "k", false);
+        private static final MethodHandle MOVEMENT_TICK = NMS.getMethodHandle(EntityShulker.class, "k", false);
     }
 
     public static class ShulkerNPC extends CraftShulker implements NPCHolder {

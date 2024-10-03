@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
@@ -20,8 +21,6 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
@@ -63,7 +62,8 @@ public class SkinUpdateTracker {
         Location playerLoc = player.getLocation();
         Location skinLoc = entity.getLocation();
 
-        if (playerLoc.distance(skinLoc) > Setting.NPC_SKIN_VIEW_DISTANCE.asDouble())
+        if (playerLoc.distance(skinLoc) > skinnable.getNPC().data().get(NPC.Metadata.TRACKING_RANGE,
+                Setting.NPC_SKIN_VIEW_DISTANCE.asInt()))
             return false;
 
         // see if the NPC is within the players field of view
@@ -90,7 +90,7 @@ public class SkinUpdateTracker {
     }
 
     private Iterable<NPC> getAllNPCs() {
-        return Iterables.filter(Iterables.concat(CitizensAPI.getNPCRegistries()), Predicates.notNull());
+        return Iterables.filter(Iterables.concat(CitizensAPI.getNPCRegistries()), Objects::nonNull);
     }
 
     private List<SkinnableEntity> getNearbyNPCs(Player player, boolean reset, boolean checkFov) {
@@ -153,7 +153,7 @@ public class SkinUpdateTracker {
      *            The despawned NPC.
      */
     public void onNPCDespawn(NPC npc) {
-        Preconditions.checkNotNull(npc);
+        Objects.requireNonNull(npc);
         playerTrackers.remove(npc.getUniqueId());
         SkinnableEntity skinnable = getSkinnable(npc);
         if (skinnable == null)
@@ -173,7 +173,7 @@ public class SkinUpdateTracker {
      *            The navigating NPC.
      */
     public void onNPCNavigationBegin(NPC npc) {
-        Preconditions.checkNotNull(npc);
+        Objects.requireNonNull(npc);
         SkinnableEntity skinnable = getSkinnable(npc);
         if (skinnable == null)
             return;
@@ -188,7 +188,7 @@ public class SkinUpdateTracker {
      *            The finished NPC.
      */
     public void onNPCNavigationComplete(NPC npc) {
-        Preconditions.checkNotNull(npc);
+        Objects.requireNonNull(npc);
         SkinnableEntity skinnable = getSkinnable(npc);
         if (skinnable == null)
             return;
@@ -203,7 +203,7 @@ public class SkinUpdateTracker {
      *            The spawned NPC.
      */
     public void onNPCSpawn(NPC npc) {
-        Preconditions.checkNotNull(npc);
+        Objects.requireNonNull(npc);
         SkinnableEntity skinnable = getSkinnable(npc);
         if (skinnable == null)
             return;
@@ -219,7 +219,7 @@ public class SkinUpdateTracker {
      *            The player that moved.
      */
     public void onPlayerMove(Player player) {
-        Preconditions.checkNotNull(player);
+        Objects.requireNonNull(player);
         PlayerTracker updateTracker = playerTrackers.get(player.getUniqueId());
         if (updateTracker == null || !updateTracker.shouldUpdate(player))
             return;
@@ -238,7 +238,7 @@ public class SkinUpdateTracker {
      *            The ID of the player.
      */
     public void removePlayer(UUID playerId) {
-        Preconditions.checkNotNull(playerId);
+        Objects.requireNonNull(playerId);
         playerTrackers.remove(playerId);
     }
 
@@ -260,17 +260,18 @@ public class SkinUpdateTracker {
         if (entity == null || !entity.isValid())
             return;
 
-        double viewDistance = Setting.NPC_SKIN_VIEW_DISTANCE.asDouble();
+        double viewDistance = skinnable.getNPC().data().get(NPC.Metadata.TRACKING_RANGE,
+                Setting.NPC_SKIN_VIEW_DISTANCE.asInt());
         Location location = entity.getLocation();
         List<Player> players = entity.getWorld().getPlayers();
         for (Player player : players) {
-            if (player.hasMetadata("NPC")) {
+            if (player.hasMetadata("NPC"))
                 continue;
-            }
+
             Location ploc = player.getLocation();
-            if (ploc.getWorld() != location.getWorld() || ploc.distance(location) > viewDistance) {
+            if (ploc.getWorld() != location.getWorld() || ploc.distance(location) > viewDistance)
                 continue;
-            }
+
             PlayerTracker tracker = playerTrackers.get(player.getUniqueId());
             if (tracker != null) {
                 tracker.hardReset(player);

@@ -36,7 +36,7 @@ import net.citizensnpcs.util.Util;
  *
  */
 @TraitName("lookclose")
-public class LookClose extends Trait implements Toggleable {
+public class LookClose extends Trait {
     @Persist("disablewhilenavigating")
     private boolean disableWhileNavigating = Setting.DISABLE_LOOKCLOSE_WHILE_NAVIGATING.asBoolean();
     @Persist("enabled")
@@ -144,12 +144,12 @@ public class LookClose extends Trait implements Toggleable {
             }
         } else {
             double min = Double.MAX_VALUE;
-            Location npcLoc = npc.getStoredLocation();
+            Location npcLoc = npc.getEntity().getLocation();
             for (Player player : getNearbyPlayers()) {
                 double dist = player.getLocation().distance(npcLoc);
-                if (dist > min) {
+                if (dist > min)
                     continue;
-                }
+
                 min = dist;
                 lookingAt = player;
             }
@@ -172,12 +172,15 @@ public class LookClose extends Trait implements Toggleable {
                         .map(e -> (Player) e).collect(Collectors.toList())
                 : CitizensAPI.getLocationLookup().getNearbyPlayers(npcLoc, range);
         for (Player player : nearby) {
-            if (player == lookingAt || !targetNPCs && CitizensAPI.getNPCRegistry().getNPC(player) != null) {
+            if (player == lookingAt || player.getWorld() != npc.getEntity().getWorld())
                 continue;
-            }
-            if (player.getLocation().getWorld() != npcLoc.getWorld() || isInvisible(player)) {
+
+            if (!targetNPCs && CitizensAPI.getNPCRegistry().getNPC(player) != null)
                 continue;
-            }
+
+            if (isInvisible(player))
+                continue;
+
             options.add(player);
         }
         return options;
@@ -373,7 +376,6 @@ public class LookClose extends Trait implements Toggleable {
         return targetNPCs;
     }
 
-    @Override
     public boolean toggle() {
         enabled = !enabled;
         return enabled;

@@ -17,6 +17,7 @@ import net.citizensnpcs.util.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.tags.Tag;
 import net.minecraft.world.damagesource.DamageSource;
@@ -53,6 +54,11 @@ public class RabbitController extends MobEntityController {
         public EntityRabbitNPC(EntityType<? extends Rabbit> types, Level level, NPC npc) {
             super(types, level);
             this.npc = (CitizensNPC) npc;
+        }
+
+        @Override
+        public boolean broadcastToPlayer(ServerPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.broadcastToPlayer(player));
         }
 
         @Override
@@ -206,14 +212,20 @@ public class RabbitController extends MobEntityController {
         }
 
         @Override
-        public void setRabbitType(int i) {
-            if (npc != null) {
-                if (NMSImpl.getRabbitTypeField() == null)
-                    return;
-                this.entityData.set(NMSImpl.getRabbitTypeField(), i);
+        public void setRabbitType(int type) {
+            if (npc == null) {
+                super.setRabbitType(type);
                 return;
             }
-            super.setRabbitType(i);
+            if (npc.useMinecraftAI()) {
+                if (goalSelector.getAvailableGoals().size() == 0) {
+                    registerGoals(); // make sure the evil goals include the default AI goals
+                }
+                super.setRabbitType(type);
+                NMSImpl.clearGoals(npc, goalSelector, targetSelector);
+            } else if (NMSImpl.getRabbitTypeField() != null) {
+                entityData.set(NMSImpl.getRabbitTypeField(), type);
+            }
         }
 
         @Override

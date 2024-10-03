@@ -18,6 +18,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.PositionImpl;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.damagesource.DamageSource;
@@ -71,6 +72,11 @@ public class DolphinController extends MobEntityController {
                 this.getAttribute(Attributes.MOVEMENT_SPEED)
                         .setBaseValue(this.getAttribute(Attributes.MOVEMENT_SPEED).getBaseValue() / 10);
             }
+        }
+
+        @Override
+        public boolean broadcastToPlayer(ServerPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.broadcastToPlayer(player));
         }
 
         @Override
@@ -220,9 +226,13 @@ public class DolphinController extends MobEntityController {
                 NMSImpl.updateMinecraftAIState(npc, this);
                 if (npc.useMinecraftAI() && this.moveControl != this.oldMoveController) {
                     this.moveControl = this.oldMoveController;
+                    this.getAttribute(Attributes.MOVEMENT_SPEED)
+                            .setBaseValue(this.getAttribute(Attributes.MOVEMENT_SPEED).getBaseValue() * 10);
                 }
                 if (!npc.useMinecraftAI() && this.moveControl == this.oldMoveController) {
                     this.moveControl = new MoveControl(this);
+                    this.getAttribute(Attributes.MOVEMENT_SPEED)
+                            .setBaseValue(this.getAttribute(Attributes.MOVEMENT_SPEED).getBaseValue() / 10);
                 }
                 npc.update();
             }

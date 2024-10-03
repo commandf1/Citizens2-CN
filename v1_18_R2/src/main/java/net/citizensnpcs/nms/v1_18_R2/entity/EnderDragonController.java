@@ -21,6 +21,7 @@ import net.citizensnpcs.util.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.damagesource.DamageSource;
@@ -106,7 +107,7 @@ public class EnderDragonController extends MobEntityController {
                 if (mot.x != 0 || mot.y != 0 || mot.z != 0) {
                     mot = mot.multiply(0.98, 0.98, 0.98);
                     if (getFirstPassenger() == null) {
-                        setYRot(Util.getDragonYaw(getBukkitEntity(), mot.x, mot.z));
+                        setYRot(Util.getYawFromVelocity(getBukkitEntity(), mot.x, mot.z));
                     }
                     setPos(getX() + mot.x, getY() + mot.y, getZ() + mot.z);
                     setDeltaMovement(mot);
@@ -143,6 +144,11 @@ public class EnderDragonController extends MobEntityController {
             } else {
                 super.aiStep();
             }
+        }
+
+        @Override
+        public boolean broadcastToPlayer(ServerPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.broadcastToPlayer(player));
         }
 
         @Override

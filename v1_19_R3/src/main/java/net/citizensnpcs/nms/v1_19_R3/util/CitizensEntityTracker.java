@@ -31,14 +31,14 @@ public class CitizensEntityTracker extends ChunkMap.TrackedEntity {
         map.super(entity, i, j, flag);
         this.tracker = entity;
         try {
-            Set<ServerPlayerConnection> set = (Set<ServerPlayerConnection>) TRACKING_SET_GETTER.invoke(this);
+            Set<ServerPlayerConnection> set = seenBy;
             TRACKING_SET_SETTER.invoke(this, new ForwardingSet<ServerPlayerConnection>() {
                 @Override
                 public boolean add(ServerPlayerConnection conn) {
                     boolean res = super.add(conn);
                     if (res) {
                         Bukkit.getPluginManager().callEvent(new NPCLinkToPlayerEvent(((NPCHolder) tracker).getNPC(),
-                                conn.getPlayer().getBukkitEntity()));
+                                conn.getPlayer().getBukkitEntity(), !Bukkit.isPrimaryThread()));
                     }
                     return res;
                 }
@@ -153,6 +153,5 @@ public class CitizensEntityTracker extends ChunkMap.TrackedEntity {
     private static final MethodHandle TRACKER_ENTRY = NMS.getFirstGetter(TrackedEntity.class, ServerEntity.class);
     private static final MethodHandle TRACKING_RANGE = NMS.getFirstGetter(TrackedEntity.class, int.class);
     private static final MethodHandle TRACKING_RANGE_SETTER = NMS.getFirstFinalSetter(TrackedEntity.class, int.class);
-    private static final MethodHandle TRACKING_SET_GETTER = NMS.getFirstGetter(TrackedEntity.class, Set.class);
     private static final MethodHandle TRACKING_SET_SETTER = NMS.getFirstFinalSetter(TrackedEntity.class, Set.class);
 }

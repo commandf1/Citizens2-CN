@@ -8,6 +8,7 @@ import net.citizensnpcs.api.event.NPCRightClickEvent;
 import net.citizensnpcs.api.persistence.Persist;
 import net.citizensnpcs.api.trait.Trait;
 import net.citizensnpcs.api.trait.TraitName;
+import net.citizensnpcs.util.NMS;
 
 @TraitName("pausepathfinding")
 public class PausePathfindingTrait extends Trait {
@@ -37,16 +38,18 @@ public class PausePathfindingTrait extends Trait {
         }
         npc.getNavigator().cancelNavigation();
         npc.getNavigator().setPaused(true);
-        unpauseTaskId = Bukkit.getScheduler().scheduleSyncDelayedTask(CitizensAPI.getPlugin(),
-                () -> npc.getNavigator().setPaused(false), pauseTicks <= 0 ? 20 : pauseTicks);
+        unpauseTaskId = Bukkit.getScheduler().scheduleSyncDelayedTask(CitizensAPI.getPlugin(), () -> {
+            NMS.setPitch(npc.getEntity(), 0);
+            npc.getNavigator().setPaused(false);
+        }, pauseTicks <= 0 ? 20 : pauseTicks);
     }
 
     @Override
     public void run() {
         if (playerRange == -1 || !npc.isSpawned() || unpauseTaskId == -1 && !npc.getNavigator().isNavigating())
             return;
-        if (CitizensAPI.getLocationLookup().getNearbyPlayers(npc.getStoredLocation(), playerRange).iterator()
-                .hasNext()) {
+        if (CitizensAPI.getLocationLookup()
+                .getNearbyVisiblePlayers(npc.getEntity(), npc.getStoredLocation(), playerRange).iterator().hasNext()) {
             pause();
         }
     }

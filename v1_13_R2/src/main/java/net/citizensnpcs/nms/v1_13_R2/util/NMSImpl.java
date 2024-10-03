@@ -8,7 +8,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
@@ -79,19 +78,6 @@ import net.citizensnpcs.api.astar.pathfinder.DoorExaminer;
 import net.citizensnpcs.api.command.CommandManager;
 import net.citizensnpcs.api.command.exception.CommandException;
 import net.citizensnpcs.api.gui.ForwardingInventory;
-import net.citizensnpcs.api.jnbt.ByteArrayTag;
-import net.citizensnpcs.api.jnbt.ByteTag;
-import net.citizensnpcs.api.jnbt.CompoundTag;
-import net.citizensnpcs.api.jnbt.DoubleTag;
-import net.citizensnpcs.api.jnbt.EndTag;
-import net.citizensnpcs.api.jnbt.FloatTag;
-import net.citizensnpcs.api.jnbt.IntArrayTag;
-import net.citizensnpcs.api.jnbt.IntTag;
-import net.citizensnpcs.api.jnbt.ListTag;
-import net.citizensnpcs.api.jnbt.LongTag;
-import net.citizensnpcs.api.jnbt.ShortTag;
-import net.citizensnpcs.api.jnbt.StringTag;
-import net.citizensnpcs.api.jnbt.Tag;
 import net.citizensnpcs.api.npc.BlockBreaker;
 import net.citizensnpcs.api.npc.BlockBreaker.BlockBreakerConfiguration;
 import net.citizensnpcs.api.npc.NPC;
@@ -100,6 +86,7 @@ import net.citizensnpcs.api.trait.TraitInfo;
 import net.citizensnpcs.api.util.BoundingBox;
 import net.citizensnpcs.api.util.EntityDim;
 import net.citizensnpcs.api.util.Messaging;
+import net.citizensnpcs.api.util.SpigotUtil.InventoryViewAPI;
 import net.citizensnpcs.nms.v1_13_R2.entity.ArmorStandController;
 import net.citizensnpcs.nms.v1_13_R2.entity.BatController;
 import net.citizensnpcs.nms.v1_13_R2.entity.BlazeController;
@@ -168,6 +155,7 @@ import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.EnderCrystalController;
 import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.EnderPearlController;
 import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.EnderSignalController;
 import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.EvokerFangsController;
+import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.ExperienceOrbController;
 import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.FallingBlockController;
 import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.FireworkController;
 import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.FishingHookController;
@@ -181,6 +169,7 @@ import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.MinecartCommandController;
 import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.MinecartFurnaceController;
 import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.MinecartHopperController;
 import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.MinecartRideableController;
+import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.MinecartSpawnerController;
 import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.MinecartTNTController;
 import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.PaintingController;
 import net.citizensnpcs.nms.v1_13_R2.entity.nonliving.ShulkerBulletController;
@@ -197,7 +186,6 @@ import net.citizensnpcs.npc.EntityControllers;
 import net.citizensnpcs.npc.ai.MCNavigationStrategy.MCNavigator;
 import net.citizensnpcs.npc.ai.MCTargetStrategy.TargetNavigator;
 import net.citizensnpcs.npc.ai.NPCHolder;
-import net.citizensnpcs.npc.skin.SkinnableEntity;
 import net.citizensnpcs.trait.RotationTrait;
 import net.citizensnpcs.trait.versioned.BossBarTrait;
 import net.citizensnpcs.trait.versioned.EnderDragonTrait;
@@ -539,17 +527,6 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
-    public CompoundTag getNBT(org.bukkit.inventory.ItemStack item) {
-        return convertNBT(CraftItemStack.asNMSCopy(item).getTag());
-    }
-
-    @Override
-    public NPC getNPC(org.bukkit.entity.Entity entity) {
-        Entity handle = getHandle(entity);
-        return handle instanceof NPCHolder ? ((NPCHolder) handle).getNPC() : null;
-    }
-
-    @Override
     public EntityPacketTracker getPacketTracker(org.bukkit.entity.Entity entity) {
         WorldServer server = (WorldServer) NMSImpl.getHandle(entity).getWorld();
         EntityTrackerEntry entry = server.getTracker().trackedEntities.get(entity.getEntityId());
@@ -868,6 +845,7 @@ public class NMSImpl implements NMSBridge {
         EntityControllers.setEntityControllerForType(EntityType.MINECART_HOPPER, MinecartHopperController.class);
         EntityControllers.setEntityControllerForType(EntityType.MINECART_TNT, MinecartTNTController.class);
         EntityControllers.setEntityControllerForType(EntityType.MUSHROOM_COW, MushroomCowController.class);
+        EntityControllers.setEntityControllerForType(EntityType.MINECART_MOB_SPAWNER, MinecartSpawnerController.class);
         EntityControllers.setEntityControllerForType(EntityType.OCELOT, OcelotController.class);
         EntityControllers.setEntityControllerForType(EntityType.PAINTING, PaintingController.class);
         EntityControllers.setEntityControllerForType(EntityType.PARROT, ParrotController.class);
@@ -893,7 +871,8 @@ public class NMSImpl implements NMSBridge {
         EntityControllers.setEntityControllerForType(EntityType.SPIDER, SpiderController.class);
         EntityControllers.setEntityControllerForType(EntityType.SPLASH_POTION, ThrownPotionController.class);
         EntityControllers.setEntityControllerForType(EntityType.SQUID, SquidController.class);
-        EntityControllers.setEntityControllerForType(EntityType.TIPPED_ARROW, TippedArrowController.class);
+        EntityControllers.setEntityControllerForType(EntityType.EXPERIENCE_ORB, ExperienceOrbController.class);
+        EntityControllers.setEntityControllerForType(EntityType.SPECTRAL_ARROW, SpectralArrowController.class);
         EntityControllers.setEntityControllerForType(EntityType.THROWN_EXP_BOTTLE, ThrownExpBottleController.class);
         EntityControllers.setEntityControllerForType(EntityType.TRIDENT, ThrownTridentController.class);
         EntityControllers.setEntityControllerForType(EntityType.TROPICAL_FISH, TropicalFishController.class);
@@ -941,7 +920,7 @@ public class NMSImpl implements NMSBridge {
                 yaw += Math.abs(180 - yaw) * 2;
             }
             if (handle instanceof EntityEnderDragon) {
-                yaw = Util.getDragonYaw(handle.getBukkitEntity(), xDiff, zDiff);
+                yaw = Util.getYawFromVelocity(handle.getBukkitEntity(), xDiff, zDiff);
             } else {
                 yaw = yaw - 90;
             }
@@ -1018,7 +997,7 @@ public class NMSImpl implements NMSBridge {
 
             @Override
             public CraftInventoryView getBukkitView() {
-                if (this.bukkitEntity != null) {
+                if (this.bukkitEntity == null) {
                     try {
                         this.bukkitEntity = new CraftInventoryView(player,
                                 new CitizensInventoryAnvil(new Location(player.getWorld(), 0, 0, 0),
@@ -1062,8 +1041,10 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
-    public Runnable playerTicker(Player next) {
+    public Runnable playerTicker(NPC npc, Player next) {
         return () -> {
+            if (!next.isValid())
+                return;
             EntityPlayer entity = (EntityPlayer) getHandle(next);
             boolean removeFromPlayerList = ((NPCHolder) entity).getNPC().data().get("removefromplayerlist",
                     Setting.REMOVE_PLAYERS_FROM_PLAYER_LIST.asBoolean());
@@ -1174,9 +1155,6 @@ public class NMSImpl implements NMSBridge {
                 e.printStackTrace();
             }
         }
-        if (getHandle(entity) instanceof EntityHumanNPC) {
-            ((EntityHumanNPC) getHandle(entity)).setTracked(replace);
-        }
     }
 
     @Override
@@ -1226,26 +1204,17 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
-    public void sendTabListRemove(Player recipient, Collection<? extends SkinnableEntity> skinnableNPCs) {
+    public void sendTabListRemove(Player recipient, Collection<Player> skinnableNPCs) {
         Preconditions.checkNotNull(recipient);
         Preconditions.checkNotNull(skinnableNPCs);
         EntityPlayer[] entities = new EntityPlayer[skinnableNPCs.size()];
         int i = 0;
-        for (SkinnableEntity skinnable : skinnableNPCs) {
-            entities[i] = (EntityPlayer) skinnable;
+        for (Player skinnable : skinnableNPCs) {
+            entities[i] = (EntityPlayer) getHandle(skinnable);
             i++;
         }
         NMSImpl.sendPacket(recipient,
                 new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, entities));
-    }
-
-    @Override
-    public void sendTabListRemove(Player recipient, Player listPlayer) {
-        Preconditions.checkNotNull(recipient);
-        Preconditions.checkNotNull(listPlayer);
-        EntityPlayer entity = ((CraftPlayer) listPlayer).getHandle();
-        NMSImpl.sendPacket(recipient,
-                new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, entity));
     }
 
     @Override
@@ -1266,7 +1235,7 @@ public class NMSImpl implements NMSBridge {
     @Override
     public void setBodyYaw(org.bukkit.entity.Entity entity, float yaw) {
         getHandle(entity).yaw = yaw;
-        if (entity instanceof EntityLiving) {
+        if (getHandle(entity) instanceof EntityLiving) {
             EntityLiving handle = (EntityLiving) getHandle(entity);
             handle.aR = yaw;
             if (!(handle instanceof EntityHuman)) {
@@ -1426,13 +1395,6 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
-    public void setSneaking(org.bukkit.entity.Entity entity, boolean sneaking) {
-        if (entity instanceof Player) {
-            ((Player) entity).setSneaking(sneaking);
-        }
-    }
-
-    @Override
     public void setStepHeight(org.bukkit.entity.Entity entity, float height) {
         NMSImpl.getHandle(entity).Q = height;
     }
@@ -1446,9 +1408,9 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
-    public void setWitherCharged(Wither wither, boolean charged) {
+    public void setWitherInvulnerableTicks(Wither wither, int ticks) {
         EntityWither handle = ((CraftWither) wither).getHandle();
-        handle.d(charged ? 20 : 0);
+        handle.d(ticks);
     }
 
     @Override
@@ -1485,7 +1447,7 @@ public class NMSImpl implements NMSBridge {
         PerPlayerMetadata<Long> meta = CitizensAPI.getLocationLookup().registerMetadata("sleeping", null);
         if (sleep) {
             List<Player> nearbyPlayers = Lists.newArrayList(
-                    Iterables.filter(CitizensAPI.getLocationLookup().getNearbyPlayers(entity.getLocation(), 64), p -> {
+                    Iterables.filter(CitizensAPI.getLocationLookup().getNearbyVisiblePlayers(entity, 64), p -> {
                         Long time = meta.getMarker(p.getUniqueId(), entity.getUniqueId().toString());
                         if (time == null || Math.abs(System.currentTimeMillis() - time) > 5000)
                             return true;
@@ -1554,7 +1516,7 @@ public class NMSImpl implements NMSBridge {
     }
 
     @Override
-    public void updateInventoryTitle(Player player, InventoryView view, String newTitle) {
+    public void updateInventoryTitle(Player player, InventoryViewAPI view, String newTitle) {
         EntityPlayer handle = (EntityPlayer) getHandle(player);
         Container active = handle.activeContainer;
         InventoryType type = view.getTopInventory().getType();
@@ -1724,52 +1686,6 @@ public class NMSImpl implements NMSBridge {
                 Messaging.logTr(Messages.ERROR_CLEARING_GOALS, e.getLocalizedMessage());
             }
         }
-    }
-
-    private static CompoundTag convertNBT(net.minecraft.server.v1_13_R2.NBTTagCompound tag) {
-        if (tag == null)
-            return new CompoundTag("", Collections.EMPTY_MAP);
-        Map<String, Tag> tags = Maps.newHashMap();
-        for (String key : tag.getKeys()) {
-            tags.put(key, convertNBT(key, tag.get(key)));
-        }
-        return new CompoundTag("", tags);
-    }
-
-    private static Tag convertNBT(String key, net.minecraft.server.v1_13_R2.NBTBase base) {
-        if (base instanceof net.minecraft.server.v1_13_R2.NBTTagInt)
-            return new IntTag(key, ((net.minecraft.server.v1_13_R2.NBTTagInt) base).asInt());
-        else if (base instanceof net.minecraft.server.v1_13_R2.NBTTagFloat)
-            return new FloatTag(key, ((net.minecraft.server.v1_13_R2.NBTTagFloat) base).asFloat());
-        else if (base instanceof net.minecraft.server.v1_13_R2.NBTTagDouble)
-            return new DoubleTag(key, ((net.minecraft.server.v1_13_R2.NBTTagDouble) base).asDouble());
-        else if (base instanceof net.minecraft.server.v1_13_R2.NBTTagLong)
-            return new LongTag(key, ((net.minecraft.server.v1_13_R2.NBTTagLong) base).asLong());
-        else if (base instanceof net.minecraft.server.v1_13_R2.NBTTagShort)
-            return new ShortTag(key, ((net.minecraft.server.v1_13_R2.NBTTagShort) base).asShort());
-        else if (base instanceof net.minecraft.server.v1_13_R2.NBTTagByte)
-            return new ByteTag(key, ((net.minecraft.server.v1_13_R2.NBTTagByte) base).asByte());
-        else if (base instanceof net.minecraft.server.v1_13_R2.NBTTagByteArray)
-            return new ByteArrayTag(key, ((net.minecraft.server.v1_13_R2.NBTTagByteArray) base).c());
-        else if (base instanceof net.minecraft.server.v1_13_R2.NBTTagIntArray)
-            return new IntArrayTag(key, ((net.minecraft.server.v1_13_R2.NBTTagIntArray) base).d());
-        else if (base instanceof net.minecraft.server.v1_13_R2.NBTTagString)
-            return new StringTag(key, base.asString());
-        else if (base instanceof net.minecraft.server.v1_13_R2.NBTTagList) {
-            List<net.minecraft.server.v1_13_R2.NBTBase> list = (List<net.minecraft.server.v1_13_R2.NBTBase>) base;
-            List<Tag> converted = Lists.newArrayList();
-            if (list.size() > 0) {
-                Class<? extends Tag> tagType = convertNBT("", list.get(0)).getClass();
-                for (int i = 0; i < list.size(); i++) {
-                    converted.add(convertNBT("", list.get(i)));
-                }
-                return new ListTag(key, tagType, converted);
-            }
-        } else if (base instanceof net.minecraft.server.v1_13_R2.NBTTagCompound)
-            return convertNBT((net.minecraft.server.v1_13_R2.NBTTagCompound) base);
-        else if (base instanceof net.minecraft.server.v1_13_R2.NBTTagEnd)
-            return new EndTag();
-        return null;
     }
 
     public static void flyingMoveLogic(EntityLiving entity, float f, float f1, float f2) {
@@ -2011,8 +1927,11 @@ public class NMSImpl implements NMSBridge {
     }
 
     public static SoundEffect getSoundEffect(NPC npc, SoundEffect snd, NPC.Metadata meta) {
-        return npc == null || !npc.data().has(meta) ? snd
-                : IRegistry.SOUND_EVENT.get(new MinecraftKey(npc.data().get(meta, snd == null ? "" : snd.toString())));
+        if (npc == null)
+            return snd;
+        String data = npc.data().get(meta);
+        return data == null ? snd
+                : IRegistry.SOUND_EVENT.get(data.contains(":") ? MinecraftKey.a(data) : new MinecraftKey(data));
     }
 
     public static void initNetworkManager(NetworkManager network) {
@@ -2102,12 +2021,7 @@ public class NMSImpl implements NMSBridge {
 
     public static void sendPacketsNearby(Player from, Location location, Collection<Packet<?>> packets, double radius) {
         radius *= radius;
-        final org.bukkit.World world = location.getWorld();
-        for (Player player : CitizensAPI.getLocationLookup().getNearbyPlayers(location, radius)) {
-            if (world != player.getWorld() || from != null && !player.canSee(from)
-                    || location.distanceSquared(player.getLocation(PACKET_CACHE_LOCATION)) > radius) {
-                continue;
-            }
+        for (Player player : CitizensAPI.getLocationLookup().getNearbyVisiblePlayers(from, location, radius)) {
             for (Packet<?> packet : packets) {
                 NMSImpl.sendPacket(player, packet);
             }
@@ -2133,7 +2047,7 @@ public class NMSImpl implements NMSBridge {
             } else if (ENTITY_FISH_METHOD != null) {
                 ENTITY_FISH_METHOD.invoke(entity, false);
             }
-        } catch (Exception ex) {
+        } catch (Throwable ex) {
             ex.printStackTrace();
         }
     }
@@ -2173,26 +2087,20 @@ public class NMSImpl implements NMSBridge {
         navigation.d();
     }
 
-    private static MethodHandle ADVANCEMENT_PLAYER_FIELD = NMS.getFinalSetter(EntityPlayer.class, "cf");
-
     private static final Set<EntityType> BAD_CONTROLLER_LOOK = EnumSet.of(EntityType.POLAR_BEAR, EntityType.SILVERFISH,
             EntityType.SHULKER, EntityType.ENDERMITE, EntityType.ENDER_DRAGON, EntityType.BAT, EntityType.SLIME,
             EntityType.DOLPHIN, EntityType.MAGMA_CUBE, EntityType.HORSE, EntityType.GHAST, EntityType.SHULKER,
             EntityType.PHANTOM);
-
-    private static final Method BLOCK_POSITION_B_D = NMS.getMethod(BlockPosition.PooledBlockPosition.class, "e", false,
-            double.class, double.class, double.class);
-
+    private static final MethodHandle BLOCK_POSITION_B_D = NMS.getMethodHandle(BlockPosition.PooledBlockPosition.class,
+            "e", false, double.class, double.class, double.class);
     private static final Field CRAFT_BOSSBAR_HANDLE_FIELD = NMS.getField(CraftBossBar.class, "handle");
-
     private static final float DEFAULT_SPEED = 1F;
-
     private static final Field ENDERDRAGON_BATTLE_BAR_FIELD = NMS.getField(EnderDragonBattle.class, "c", false);
     private static final Field ENDERDRAGON_BATTLE_FIELD = NMS.getField(EntityEnderDragon.class, "bR");
     public static MethodHandle ENDERDRAGON_CHECK_WALLS = NMS.getFirstMethodHandleWithReturnType(EntityEnderDragon.class,
             true, boolean.class, AxisAlignedBB.class);
     private static DataWatcherObject<Boolean> ENDERMAN_ANGRY;
-    private static Method ENTITY_FISH_METHOD = NMS.getMethod(EntityFish.class, "t", false, boolean.class);
+    private static MethodHandle ENTITY_FISH_METHOD = NMS.getMethodHandle(EntityFish.class, "t", false, boolean.class);
     private static Field ENTITY_FISH_NUM_IN_SCHOOL;
     private static MethodHandle ENTITY_NAVIGATION = NMS.getFirstSetter(EntityInsentient.class, Navigation.class);
     private static CustomEntityRegistry ENTITY_REGISTRY;

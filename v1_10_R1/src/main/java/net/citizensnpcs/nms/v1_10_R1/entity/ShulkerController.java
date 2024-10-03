@@ -18,6 +18,7 @@ import net.minecraft.server.v1_10_R1.AxisAlignedBB;
 import net.minecraft.server.v1_10_R1.BlockPosition;
 import net.minecraft.server.v1_10_R1.Entity;
 import net.minecraft.server.v1_10_R1.EntityAIBodyControl;
+import net.minecraft.server.v1_10_R1.EntityPlayer;
 import net.minecraft.server.v1_10_R1.EntityShulker;
 import net.minecraft.server.v1_10_R1.IBlockData;
 import net.minecraft.server.v1_10_R1.NBTTagCompound;
@@ -65,8 +66,18 @@ public class ShulkerController extends MobEntityController {
         }
 
         @Override
+        public boolean a(EntityPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.a(player));
+        }
+
+        @Override
         public int aY() {
             return NMS.getFallDistance(npc, super.aY());
+        }
+
+        @Override
+        public boolean bg() {
+            return npc == null ? super.bg() : npc.isPushableByFluids();
         }
 
         @Override
@@ -155,10 +166,9 @@ public class ShulkerController extends MobEntityController {
 
         @Override
         public void m() {
+            super.m();
             if (npc != null) {
                 npc.update();
-            } else {
-                super.m();
             }
         }
 
@@ -175,6 +185,11 @@ public class ShulkerController extends MobEntityController {
             if (npc == null) {
                 super.n();
             }
+        }
+
+        @Override
+        protected boolean o() {
+            return npc == null || npc.useMinecraftAI() ? super.o() : false;
         }
 
         @Override

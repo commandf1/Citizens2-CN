@@ -3,7 +3,6 @@ package net.citizensnpcs.nms.v1_16_R3.util;
 import java.util.Random;
 
 import net.citizensnpcs.util.NMS;
-import net.minecraft.server.v1_16_R3.AttributeModifiable;
 import net.minecraft.server.v1_16_R3.ControllerMove;
 import net.minecraft.server.v1_16_R3.EntityInsentient;
 import net.minecraft.server.v1_16_R3.EntityLiving;
@@ -49,10 +48,7 @@ public class EntityMoveControl extends ControllerMove {
             float f = (float) Math.toDegrees(Math.atan2(d1, d0)) - 90.0F;
             this.a.yaw = a(this.a.yaw, f, 90.0F);
             NMS.setHeadYaw(a.getBukkitEntity(), this.a.yaw);
-            AttributeModifiable speed = this.a.getAttributeInstance(GenericAttributes.MOVEMENT_SPEED);
-            float movement = (float) (this.e * speed.getValue());
-            this.a.q(movement);
-            this.a.aT = movement;
+            this.a.aT = (float) (this.e * this.a.getAttributeInstance(GenericAttributes.MOVEMENT_SPEED).getBaseValue());
             if (a instanceof EntitySlime && h-- <= 0) {
                 this.h = new Random().nextInt(20) + 10;
                 if (((EntitySlime) a).isAggressive()) {

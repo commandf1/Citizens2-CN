@@ -17,6 +17,7 @@ import net.citizensnpcs.api.persistence.Persist;
 import net.citizensnpcs.api.trait.Trait;
 import net.citizensnpcs.api.trait.TraitName;
 import net.citizensnpcs.api.util.Messaging;
+import net.citizensnpcs.api.util.OldEnumCompat.CatTypeEnum;
 import net.citizensnpcs.util.Messages;
 import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.Util;
@@ -96,7 +97,7 @@ public class CatTrait extends Trait {
     @Command(
             aliases = { "npc" },
             usage = "cat (-s/-n/-l) --type type --ccolor collar color",
-            desc = "Sets cat modifiers",
+            desc = "",
             modifiers = { "cat" },
             min = 1,
             max = 1,
@@ -109,7 +110,7 @@ public class CatTrait extends Trait {
         String output = "";
         if (args.hasValueFlag("type")) {
             if (type == null)
-                throw new CommandUsageException(Messages.INVALID_CAT_TYPE, Util.listValuesPretty(Cat.Type.values()));
+                throw new CommandUsageException(Messages.INVALID_CAT_TYPE, Util.listValuesPretty(CatTypeEnum.values()));
             trait.setType(type);
             output += ' ' + Messaging.tr(Messages.CAT_TYPE_SET, args.getFlag("type"));
         }

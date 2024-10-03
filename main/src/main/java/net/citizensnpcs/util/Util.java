@@ -6,15 +6,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -105,31 +108,18 @@ public class Util {
         return !event.isCancelled() ? event.getCollisionVector() : null;
     }
 
-    public static boolean canSee(Player player, Entity from) {
-        if (from instanceof Player) {
-            return player.canSee((Player) from);
-        }
-        if (SUPPORTS_ENTITY_CANSEE) {
-            try {
-                return player.canSee(from);
-            } catch (NoSuchMethodError t) {
-                SUPPORTS_ENTITY_CANSEE = false;
-            }
-        }
-        return true;
-    }
-
     /**
      * Clamps the rotation angle to [-180, 180]
      */
     public static float clamp(float angle) {
-        while (angle < -180.0F) {
-            angle += 360.0F;
+        float d = (float) (angle % 360.0);
+        if (d >= 180.0) {
+            d -= 360.0;
         }
-        while (angle >= 180.0F) {
-            angle -= 360.0F;
+        if (d < -180.0) {
+            d += 360.0;
         }
-        return angle;
+        return d;
     }
 
     public static float clamp(float angle, float min, float max, float d) {
@@ -161,13 +151,6 @@ public class Util {
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         stack.setItemMeta(meta);
         return stack;
-    }
-
-    public static ItemStack editTitle(ItemStack item, Function<String, String> transform) {
-        ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(transform.apply(meta.hasDisplayName() ? meta.getDisplayName() : ""));
-        item.setItemMeta(meta);
-        return item;
     }
 
     public static void face(Entity entity, float yaw, float pitch) {
@@ -212,35 +195,14 @@ public class Util {
         return center;
     }
 
-    /**
-     * Returns the yaw to face along the given velocity (corrected for dragon yaw i.e. facing backwards)
-     */
-    public static float getDragonYaw(Entity entity, double motX, double motZ) {
-        Location location = entity.getLocation();
-        double x = location.getX();
-        double z = location.getZ();
-        double tX = x + motX;
-        double tZ = z + motZ;
-        if (z > tZ)
-            return (float) -Math.toDegrees(Math.atan((x - tX) / (z - tZ)));
-        if (z < tZ)
-            return (float) -Math.toDegrees(Math.atan((x - tX) / (z - tZ))) + 180.0F;
-
-        return location.getYaw();
-    }
-
     public static Scoreboard getDummyScoreboard() {
         return DUMMY_SCOREBOARD;
     }
 
     public static Entity getEntity(UUID uuid) {
-        if (SUPPORTS_BUKKIT_GETENTITY) {
-            try {
-                return Bukkit.getEntity(uuid);
-            } catch (Throwable t) {
-                SUPPORTS_BUKKIT_GETENTITY = false;
-            }
-        }
+        if (SUPPORTS_BUKKIT_GETENTITY)
+            return Bukkit.getEntity(uuid);
+
         for (World world : Bukkit.getWorlds()) {
             for (Entity entity : world.getEntities()) {
                 if (entity.getUniqueId().equals(uuid))
@@ -252,6 +214,20 @@ public class Util {
 
     public static Location getEyeLocation(Entity entity) {
         return entity instanceof LivingEntity ? ((LivingEntity) entity).getEyeLocation() : entity.getLocation();
+    }
+
+    public static EntityType getFallbackEntityType(String first, String... second) {
+        try {
+            return EntityType.valueOf(first);
+        } catch (IllegalArgumentException e) {
+            for (String s : second) {
+                try {
+                    return EntityType.valueOf(s);
+                } catch (IllegalArgumentException iae) {
+                }
+            }
+            return null;
+        }
     }
 
     public static Material getFallbackMaterial(String first, String... second) {
@@ -276,6 +252,23 @@ public class Util {
         return "CIT-" + id.toString().replace("-", "").substring(0, 12);
     }
 
+    /**
+     * Returns the yaw to face along the given velocity (corrected for dragon yaw i.e. facing backwards)
+     */
+    public static float getYawFromVelocity(Entity entity, double motX, double motZ) {
+        Location location = entity.getLocation();
+        double x = location.getX();
+        double z = location.getZ();
+        double tX = x + motX;
+        double tZ = z + motZ;
+        if (z > tZ)
+            return (float) -Math.toDegrees(Math.atan((x - tX) / (z - tZ)));
+        if (z < tZ)
+            return (float) -Math.toDegrees(Math.atan((x - tX) / (z - tZ))) + 180.0F;
+
+        return location.getYaw();
+    }
+
     public static boolean inBlock(Entity entity) {
         // TODO: bounding box aware?
         Location loc = entity.getLocation();
@@ -288,10 +281,8 @@ public class Util {
     }
 
     public static boolean isAlwaysFlyable(EntityType type) {
-        if (type.name().toLowerCase().equals("vex") || type.name().toLowerCase().equals("parrot")
-                || type.name().toLowerCase().equals("allay") || type.name().toLowerCase().equals("bee")
-                || type.name().toLowerCase().equals("phantom"))
-            // 1.8.8 compatibility
+        if (type.name().equals("VEX") || type.name().equals("PARROT") || type.name().equals("ALLAY")
+                || type.name().equals("BEE") || type.name().equals("PHANTOM") || type.name().equals("BREEZE"))
             return true;
         switch (type) {
             case BAT:
@@ -303,6 +294,10 @@ public class Util {
             default:
                 return false;
         }
+    }
+
+    public static boolean isBedrockName(String name) {
+        return BEDROCK_NAME_PREFIX != null ? name.startsWith(BEDROCK_NAME_PREFIX) : false;
     }
 
     public static boolean isHorse(EntityType type) {
@@ -339,26 +334,19 @@ public class Util {
         }
     }
 
-    public static String listValuesPretty(Enum<?>[] values) {
-        return "<yellow>" + Joiner.on("<green>, <yellow>").join(values).toLowerCase();
-    }
-
-    public static boolean locationWithinRange(Location current, Location target, double range) {
-        if (current == null || target == null || (current.getWorld() != target.getWorld()))
-            return false;
-        return current.distance(target) <= range;
+    public static String listValuesPretty(Object[] values) {
+        return "<yellow>" + Joiner.on("<green>, <yellow>").join(values).replace('_', ' ').toLowerCase(Locale.ROOT);
     }
 
     public static <T extends Enum<?>> T matchEnum(T[] values, String toMatch) {
-        toMatch = toMatch.toLowerCase().replace('-', '_').replace(' ', '_');
+        toMatch = toMatch.replace('-', '_').replace(' ', '_');
         for (T check : values) {
-            if (toMatch.equals(check.name().toLowerCase())
-                    || toMatch.equals("item") && check == EntityType.DROPPED_ITEM)
+            if (toMatch.equalsIgnoreCase(check.name())
+                    || toMatch.equalsIgnoreCase("item") && check.name().equals("DROPPED_ITEM"))
                 return check; // check for an exact match first
-
         }
         for (T check : values) {
-            String name = check.name().toLowerCase();
+            String name = check.name().toLowerCase(Locale.ROOT);
             if (name.replace("_", "").equals(toMatch) || name.startsWith(toMatch))
                 return check;
 
@@ -367,19 +355,11 @@ public class Util {
     }
 
     public static boolean matchesItemInHand(Player player, String setting) {
-        String parts = setting;
-        if (parts.contains("*") || parts.isEmpty())
+        if (setting.contains("*") || setting.isEmpty())
             return true;
-        for (String part : Splitter.on(',').split(parts)) {
+        for (String part : Splitter.on(',').split(setting)) {
             Material matchMaterial = SpigotUtil.isUsing1_13API() ? Material.matchMaterial(part, false)
                     : Material.matchMaterial(part);
-            if (matchMaterial == null) {
-                if (part.equals("280")) {
-                    matchMaterial = Material.STICK;
-                } else if (part.equals("340")) {
-                    matchMaterial = Material.BOOK;
-                }
-            }
             if (matchMaterial == player.getInventory().getItemInHand().getType())
                 return true;
 
@@ -398,11 +378,23 @@ public class Util {
         return list;
     }
 
+    public static Color parseColor(String string) {
+        if (!string.contains(","))
+            return Color.fromRGB(Integer.decode(string));
+        List<Integer> list = Splitter.on(',').splitToStream(string).map(Integer::parseInt).collect(Collectors.toList());
+        if (list.size() == 3) {
+            return Color.fromRGB(list.get(0), list.get(1), list.get(2));
+        } else if (list.size() == 4) {
+            return Color.fromARGB(list.get(3), list.get(0), list.get(1), list.get(2));
+        }
+        throw new NumberFormatException();
+    }
+
     public static ItemStack parseItemStack(ItemStack stack, String item) {
         if (stack == null || stack.getType() == Material.AIR) {
             stack = new ItemStack(Material.STONE, 1);
         }
-        if (item.charAt(0) == '{') {
+        if (item.contains("{")) {
             try {
                 Bukkit.getUnsafe().modifyItemStack(stack, item);
             } catch (Throwable t) {
@@ -429,8 +421,19 @@ public class Util {
         return duration == null ? -1 : toTicks(duration);
     }
 
+    public static String possiblyConvertToBedrockName(String name) {
+        return name.startsWith(BEDROCK_NAME_PREFIX) ? name : BEDROCK_NAME_PREFIX + name;
+    }
+
+    public static String possiblyStripBedrockPrefix(String name, UUID uuid) {
+        if (uuid.getMostSignificantBits() == 0) {
+            return stripBedrockPrefix(name);
+        }
+        return name;
+    }
+
     public static String prettyEnum(Enum<?> e) {
-        return e.name().toLowerCase().replace('_', ' ');
+        return e.name().toLowerCase(Locale.ROOT).replace('_', ' ');
     }
 
     public static String prettyPrintLocation(Location to) {
@@ -439,16 +442,12 @@ public class Util {
                 TWO_DIGIT_DECIMAL.format(to.getYaw()), TWO_DIGIT_DECIMAL.format(to.getPitch()));
     }
 
-    public static String rawtype(Enum<?>[] values) {
-        return "<yellow>" + Joiner.on("<green>, <yellow>").join(values).toLowerCase();
-    }
-
     public static void runCommand(NPC npc, Player clicker, String command, boolean op, boolean player) {
         List<String> split = Splitter.on(' ').omitEmptyStrings().trimResults().limit(2).splitToList(command);
         String bungeeServer = split.size() == 2 && split.get(0).equalsIgnoreCase("server") ? split.get(1) : null;
         String cmd = command;
         if (command.startsWith("say")) {
-            cmd = "npc speak " + command.replaceFirst("say", "").trim() + " --target <p>";
+            cmd = "npc speak \"" + command.replaceFirst("say", "").trim() + "\" --target <p>";
         }
         if ((cmd.startsWith("npc ") || cmd.startsWith("waypoints ") || cmd.startsWith("wp "))
                 && !cmd.contains("--id ")) {
@@ -478,9 +477,10 @@ public class Util {
             }
         } catch (Throwable t) {
             t.printStackTrace();
-        }
-        if (op) {
-            clicker.setOp(wasOp);
+        } finally {
+            if (op) {
+                clicker.setOp(wasOp);
+            }
         }
     }
 
@@ -499,6 +499,10 @@ public class Util {
                 }
             }
         }
+    }
+
+    public static String stripBedrockPrefix(String name) {
+        return name.replaceFirst(Pattern.quote(BEDROCK_NAME_PREFIX), "");
     }
 
     public static void talk(SpeechContext context) {
@@ -610,12 +614,30 @@ public class Util {
                 + TimeUnit.MILLISECONDS.convert(delay.getNano(), TimeUnit.NANOSECONDS)) / 50;
     }
 
-    private static final Scoreboard DUMMY_SCOREBOARD = Bukkit.getScoreboardManager().getNewScoreboard();
+    private static String BEDROCK_NAME_PREFIX = ".";
+    private static Scoreboard DUMMY_SCOREBOARD;
     private static boolean SUPPORTS_BUKKIT_GETENTITY = true;
-    private static boolean SUPPORTS_ENTITY_CANSEE = true;
     private static final DecimalFormat TWO_DIGIT_DECIMAL = new DecimalFormat();
 
     static {
+        try {
+            DUMMY_SCOREBOARD = Bukkit.getScoreboardManager().getNewScoreboard();
+        } catch (NullPointerException e) {
+        }
         TWO_DIGIT_DECIMAL.setMaximumFractionDigits(2);
+        try {
+            Bukkit.class.getMethod("getEntity", UUID.class);
+        } catch (Exception e) {
+            SUPPORTS_BUKKIT_GETENTITY = false;
+        }
+        Class<?> floodgateApiHolderClass;
+        try {
+            floodgateApiHolderClass = Class.forName("org.geysermc.floodgate.api.InstanceHolder");
+            Object api = floodgateApiHolderClass.getMethod("getApi").invoke(null);
+            BEDROCK_NAME_PREFIX = (String) api.getClass().getMethod("getPlayerPrefix").invoke(api);
+        } catch (ClassNotFoundException e) {
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
     }
 }

@@ -6,12 +6,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Function;
 
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
@@ -45,13 +42,13 @@ import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.api.trait.trait.MobType;
 import net.citizensnpcs.api.util.Messaging;
 import net.citizensnpcs.npc.ai.NPCHolder;
-import net.citizensnpcs.trait.ClickRedirectTrait;
-import net.citizensnpcs.trait.HologramTrait;
+import net.citizensnpcs.trait.HologramTrait.HologramRenderer;
 import net.citizensnpcs.trait.MirrorTrait;
 import net.citizensnpcs.trait.RotationTrait;
 import net.citizensnpcs.trait.RotationTrait.PacketRotationSession;
 import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.SkinProperty;
+import net.citizensnpcs.util.Util;
 
 public class ProtocolLibListener implements Listener {
     private ProtocolManager manager;
@@ -69,19 +66,15 @@ public class ProtocolLibListener implements Listener {
                 NPC npc = getNPCFromPacket(event);
                 if (npc == null)
                     return;
-
                 PacketContainer packet = event.getPacket();
                 int version = manager.getProtocolVersion(event.getPlayer());
-                if (npc.data().has(NPC.Metadata.HOLOGRAM_FOR) || npc.data().has(NPC.Metadata.HOLOGRAM_LINE_SUPPLIER)) {
-                    Function<Player, String> hvs = npc.data().get(NPC.Metadata.HOLOGRAM_LINE_SUPPLIER);
+                if (npc.data().has(NPC.Metadata.HOLOGRAM_RENDERER)) {
+                    HologramRenderer hr = npc.data().get(NPC.Metadata.HOLOGRAM_RENDERER);
                     Object fakeName = null;
-                    if (hvs != null) {
-                        String suppliedName = hvs.apply(event.getPlayer());
-                        fakeName = version <= 340 ? suppliedName
-                                : Optional.of(Messaging.minecraftComponentFromRawMessage(suppliedName));
-                    }
-                    boolean sneaking = npc.getOrAddTrait(ClickRedirectTrait.class).getRedirectNPC()
-                            .getOrAddTrait(HologramTrait.class).isHologramSneaking(npc, event.getPlayer());
+                    String suppliedName = hr.getPerPlayerText(npc, event.getPlayer());
+                    fakeName = version <= 340 ? suppliedName
+                            : Optional.of(Messaging.minecraftComponentFromRawMessage(suppliedName));
+                    boolean sneaking = hr.isSneaking(npc, event.getPlayer());
                     boolean delta = false;
 
                     if (version < 761) {
@@ -108,13 +101,34 @@ public class ProtocolLibListener implements Listener {
                             return;
 
                         for (WrappedDataValue wdv : wdvs) {
-                            if (fakeName != null && wdv.getIndex() == 2) {
-                                wdv.setRawValue(fakeName);
-                                delta = true;
-                            } else if (sneaking && wdv.getIndex() == 0) {
-                                byte b = (byte) (((Number) wdv.getValue()).byteValue() | 0x02);
-                                wdv.setValue(b);
-                                delta = true;
+                            switch (wdv.getIndex()) {
+                                case 0:
+                                    if (sneaking) {
+                                        byte flags = (byte) (((Number) wdv.getValue()).byteValue() | 0x02);
+                                        wdv.setValue(flags);
+                                        delta = true;
+                                    }
+                                    break;
+                                case 2:
+                                    if (fakeName != null) {
+                                        wdv.setRawValue(fakeName);
+                                        delta = true;
+                                    }
+                                    break;
+                                case 22:
+                                    if (version <= 762 && fakeName != null
+                                            && npc.getEntity().getType() == EntityType.TEXT_DISPLAY) {
+                                        wdv.setRawValue(((Optional<?>) fakeName).get());
+                                        delta = true;
+                                    }
+                                    break;
+                                case 23:
+                                    if (version > 762 && fakeName != null
+                                            && npc.getEntity().getType() == EntityType.TEXT_DISPLAY) {
+                                        wdv.setRawValue(((Optional<?>) fakeName).get());
+                                        delta = true;
+                                    }
+                                    break;
                             }
                         }
                         if (delta) {
@@ -154,7 +168,8 @@ public class ProtocolLibListener implements Listener {
                     if (playerProfile == null) {
                         playerProfile = NMS.getProfile(event.getPlayer());
                         wgp = WrappedGameProfile.fromPlayer(event.getPlayer());
-                        playerName = WrappedChatComponent.fromText(event.getPlayer().getDisplayName());
+                        playerName = WrappedChatComponent.fromText(
+                                Util.possiblyStripBedrockPrefix(event.getPlayer().getDisplayName(), wgp.getUUID()));
                     }
                     if (trait.mirrorName()) {
                         list.set(i, new PlayerInfoData(wgp.withId(npcInfo.getProfile().getId()), npcInfo.getLatency(),
@@ -207,13 +222,15 @@ public class ProtocolLibListener implements Listener {
                     return;
 
                 PacketRotationSession session = trait.getPacketSession(event.getPlayer());
+
                 if (session == null || !session.isActive())
                     return;
 
                 PacketContainer packet = event.getPacket();
                 PacketType type = event.getPacketType();
-                Messaging.debug(session.getBodyYaw(), session.getHeadYaw(),
-                        "OVERWRITTEN " + type + " " + packet.getHandle());
+                Messaging.debug("Modifying body/head yaw for", eid, "->", event.getPlayer().getName(),
+                        session.getBodyYaw(), degToByte(session.getBodyYaw()), session.getHeadYaw(),
+                        degToByte(session.getHeadYaw()), session.getPitch(), type);
                 if (type == Server.ENTITY_HEAD_ROTATION) {
                     packet.getBytes().write(0, degToByte(session.getHeadYaw()));
                 } else if (type == Server.ENTITY_LOOK || type == Server.ENTITY_MOVE_LOOK
@@ -228,13 +245,9 @@ public class ProtocolLibListener implements Listener {
 
     private NPC getNPCFromPacket(PacketEvent event) {
         PacketContainer packet = event.getPacket();
-        Entity entity = null;
         try {
-            Integer id = packet.getIntegers().readSafely(0);
-            if (id == null)
-                return null;
-
-            entity = manager.getEntityFromID(event.getPlayer().getWorld(), id);
+            Object entityModifier = packet.getEntityModifier(event).read(0);
+            return entityModifier instanceof NPCHolder ? ((NPCHolder) entityModifier).getNPC() : null;
         } catch (FieldAccessException | IllegalArgumentException ex) {
             if (!LOGGED_ERROR) {
                 Messaging.severe(
@@ -246,7 +259,6 @@ public class ProtocolLibListener implements Listener {
             }
             return null;
         }
-        return entity instanceof NPCHolder ? ((NPCHolder) entity).getNPC() : null;
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -256,9 +268,9 @@ public class ProtocolLibListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onNPCDespawn(NPCDespawnEvent event) {
-        if (event.getNPC().getEntity() != null) {
-            rotationTraits.remove(event.getNPC().getEntity().getEntityId());
-        }
+        if (event.getNPC().getEntity() == null)
+            return;
+        rotationTraits.remove(event.getNPC().getEntity().getEntityId());
         mirrorTraits.remove(event.getNPC().getEntity().getUniqueId());
     }
 

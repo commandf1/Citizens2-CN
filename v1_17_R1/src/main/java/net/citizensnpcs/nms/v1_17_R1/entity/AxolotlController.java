@@ -6,10 +6,7 @@ import org.bukkit.craftbukkit.v1_17_R1.entity.CraftAxolotl;
 import org.bukkit.craftbukkit.v1_17_R1.entity.CraftEntity;
 import org.bukkit.util.Vector;
 
-import com.mojang.serialization.Dynamic;
-
 import net.citizensnpcs.api.npc.NPC;
-import net.citizensnpcs.nms.v1_17_R1.util.EntityMoveControl;
 import net.citizensnpcs.nms.v1_17_R1.util.ForwardingNPCHolder;
 import net.citizensnpcs.nms.v1_17_R1.util.NMSBoundingBox;
 import net.citizensnpcs.nms.v1_17_R1.util.NMSImpl;
@@ -19,6 +16,7 @@ import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.tags.Tag;
 import net.minecraft.world.InteractionHand;
@@ -26,7 +24,6 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.control.MoveControl;
 import net.minecraft.world.entity.animal.axolotl.Axolotl;
@@ -76,6 +73,11 @@ public class AxolotlController extends MobEntityController {
                 this.getAttribute(Attributes.MOVEMENT_SPEED)
                         .setBaseValue(this.getAttribute(Attributes.MOVEMENT_SPEED).getBaseValue() / 10);
             }
+        }
+
+        @Override
+        public boolean broadcastToPlayer(ServerPlayer player) {
+            return NMS.shouldBroadcastToPlayer(npc, () -> super.broadcastToPlayer(player));
         }
 
         @Override
@@ -172,13 +174,6 @@ public class AxolotlController extends MobEntityController {
         }
 
         @Override
-        protected Brain makeBrain(Dynamic dynamic) {
-            if (npc == null || npc.useMinecraftAI())
-                return super.makeBrain(dynamic);
-            return brainProvider().makeBrain(dynamic);
-        }
-
-        @Override
         public InteractionResult mobInteract(Player entityhuman, InteractionHand enumhand) {
             if (npc == null || !npc.isProtected())
                 return super.mobInteract(entityhuman, enumhand);
@@ -226,9 +221,13 @@ public class AxolotlController extends MobEntityController {
                 NMSImpl.updateMinecraftAIState(npc, this);
                 if (npc.useMinecraftAI() && this.moveControl != this.oldMoveController) {
                     this.moveControl = this.oldMoveController;
+                    this.getAttribute(Attributes.MOVEMENT_SPEED)
+                            .setBaseValue(this.getAttribute(Attributes.MOVEMENT_SPEED).getBaseValue() * 10);
                 }
                 if (!npc.useMinecraftAI() && this.moveControl == this.oldMoveController) {
-                    this.moveControl = new EntityMoveControl(this);
+                    this.moveControl = new MoveControl(this);
+                    this.getAttribute(Attributes.MOVEMENT_SPEED)
+                            .setBaseValue(this.getAttribute(Attributes.MOVEMENT_SPEED).getBaseValue() / 10);
                 }
                 npc.update();
             }

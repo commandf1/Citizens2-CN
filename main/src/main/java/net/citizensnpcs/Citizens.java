@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -18,7 +17,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -49,19 +47,18 @@ import net.citizensnpcs.api.event.CitizensPreReloadEvent;
 import net.citizensnpcs.api.event.CitizensReloadEvent;
 import net.citizensnpcs.api.event.DespawnReason;
 import net.citizensnpcs.api.exception.NPCLoadException;
+import net.citizensnpcs.api.npc.MemoryNPCDataStore;
 import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.api.npc.NPCDataStore;
 import net.citizensnpcs.api.npc.NPCRegistry;
 import net.citizensnpcs.api.npc.SimpleNPCDataStore;
-import net.citizensnpcs.api.scripting.EventRegistrar;
-import net.citizensnpcs.api.scripting.ObjectProvider;
-import net.citizensnpcs.api.scripting.ScriptCompiler;
+import net.citizensnpcs.api.npc.templates.TemplateRegistry;
 import net.citizensnpcs.api.trait.Trait;
 import net.citizensnpcs.api.trait.TraitFactory;
-import net.citizensnpcs.api.trait.TraitInfo;
 import net.citizensnpcs.api.util.Messaging;
 import net.citizensnpcs.api.util.Placeholders;
 import net.citizensnpcs.api.util.SpigotUtil;
+import net.citizensnpcs.api.util.SpigotUtil.InventoryViewAPI;
 import net.citizensnpcs.api.util.Storage;
 import net.citizensnpcs.api.util.Translator;
 import net.citizensnpcs.api.util.YamlStorage;
@@ -75,12 +72,9 @@ import net.citizensnpcs.editor.Editor;
 import net.citizensnpcs.npc.CitizensNPCRegistry;
 import net.citizensnpcs.npc.CitizensTraitFactory;
 import net.citizensnpcs.npc.NPCSelector;
-import net.citizensnpcs.npc.Template;
-import net.citizensnpcs.npc.profile.ProfileFetcher;
 import net.citizensnpcs.npc.skin.Skin;
-import net.citizensnpcs.trait.ClickRedirectTrait;
-import net.citizensnpcs.trait.CommandTrait;
-import net.citizensnpcs.trait.ShopTrait;
+import net.citizensnpcs.npc.skin.profile.ProfileFetcher;
+import net.citizensnpcs.trait.shop.StoredShops;
 import net.citizensnpcs.util.Messages;
 import net.citizensnpcs.util.NMS;
 import net.citizensnpcs.util.PlayerUpdateTask;
@@ -90,13 +84,19 @@ import net.milkbowl.vault.economy.Economy;
 
 public class Citizens extends JavaPlugin implements CitizensPlugin {
     private final List<NPCRegistry> anonymousRegistries = Lists.newArrayList();
-    private final List<NPCRegistry> citizensBackedRegistries = Lists.newArrayList();
     private final CommandManager commands = new CommandManager();
     private Settings config;
     private boolean enabled;
     private LocationLookup locationLookup;
     private final NMSHelper nmsHelper = new NMSHelper() {
-        private boolean SUPPORT_OWNER_PROFILE = true;
+        private boolean SUPPORT_OWNER_PROFILE = false;
+        {
+            try {
+                SkullMeta.class.getMethod("getOwnerProfile");
+                SUPPORT_OWNER_PROFILE = true;
+            } catch (Exception e) {
+            }
+        }
 
         @Override
         public OfflinePlayer getPlayer(BlockCommandSender sender) {
@@ -111,8 +111,8 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
         }
 
         @Override
-        public InventoryView openAnvilInventory(Player player, Inventory inventory, String title) {
-            return NMS.openAnvilInventory(player, inventory, title);
+        public InventoryViewAPI openAnvilInventory(Player player, Inventory inventory, String title) {
+            return new InventoryViewAPI(NMS.openAnvilInventory(player, inventory, title));
         }
 
         @Override
@@ -120,14 +120,8 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
             GameProfile profile = NMS.getProfile(meta);
             if (profile == null) {
                 if (SUPPORT_OWNER_PROFILE) {
-                    try {
-                        profile = new GameProfile(meta.getOwnerProfile().getUniqueId(),
-                                meta.getOwnerProfile().getName());
-                    } catch (Exception e) {
-                        SUPPORT_OWNER_PROFILE = false;
-                    }
-                }
-                if (profile == null) {
+                    profile = new GameProfile(meta.getOwnerProfile().getUniqueId(), meta.getOwnerProfile().getName());
+                } else {
                     profile = new GameProfile(UUID.randomUUID(), null);
                 }
             }
@@ -137,10 +131,10 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
         }
 
         @Override
-        public void updateInventoryTitle(Player player, InventoryView view, String newTitle) {
-            if (view.getTopInventory().getType() == InventoryType.CRAFTING
-                    || view.getTopInventory().getType() == InventoryType.CREATIVE
-                    || view.getTopInventory().getType() == InventoryType.PLAYER)
+        public void updateInventoryTitle(Player player, InventoryViewAPI view, String newTitle) {
+            Inventory top = view.getTopInventory();
+            if (top.getType() == InventoryType.CRAFTING || top.getType() == InventoryType.CREATIVE
+                    || top.getType() == InventoryType.PLAYER)
                 return;
             NMS.updateInventoryTitle(player, view, newTitle);
         }
@@ -152,19 +146,14 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
     private NPCSelector selector;
     private StoredShops shops;
     private final Map<String, NPCRegistry> storedRegistries = Maps.newHashMap();
+    private TemplateRegistry templateRegistry;
+    private NPCRegistry temporaryRegistry;
     private CitizensTraitFactory traitFactory;
 
     @Override
     public NPCRegistry createAnonymousNPCRegistry(NPCDataStore store) {
         CitizensNPCRegistry anon = new CitizensNPCRegistry(store, "anonymous-" + UUID.randomUUID().toString());
         anonymousRegistries.add(anon);
-        return anon;
-    }
-
-    @Override
-    public NPCRegistry createCitizensBackedNPCRegistry(NPCDataStore store) {
-        CitizensNPCRegistry anon = new CitizensNPCRegistry(store, "anonymous-citizens-" + UUID.randomUUID().toString());
-        citizensBackedRegistries.add(anon);
         return anon;
     }
 
@@ -184,10 +173,10 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
     }
 
     private void despawnNPCs(boolean save) {
-        for (NPCRegistry registry : Iterables.concat(Arrays.asList(npcRegistry), citizensBackedRegistries)) {
-            if (registry == null) {
+        for (NPCRegistry registry : Arrays.asList(npcRegistry, temporaryRegistry)) {
+            if (registry == null)
                 continue;
-            }
+
             if (save) {
                 if (registry == npcRegistry) {
                     storeNPCs(false);
@@ -239,7 +228,8 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
             @Override
             public NPCRegistry next() {
                 if (stored == null) {
-                    stored = Iterables.concat(storedRegistries.values(), anonymousRegistries, citizensBackedRegistries)
+                    stored = Iterables
+                            .concat(storedRegistries.values(), anonymousRegistries, Arrays.asList(temporaryRegistry))
                             .iterator();
                     return npcRegistry;
                 }
@@ -276,6 +266,16 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
     }
 
     @Override
+    public TemplateRegistry getTemplateRegistry() {
+        return templateRegistry;
+    }
+
+    @Override
+    public NPCRegistry getTemporaryNPCRegistry() {
+        return temporaryRegistry;
+    }
+
+    @Override
     public TraitFactory getTraitFactory() {
         return traitFactory;
     }
@@ -287,26 +287,26 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
         lib.addMavenCentral();
         lib.setLogLevel(LogLevel.WARN);
         // Unfortunately, transitive dependency management is not supported in this library.
-        lib.loadLibrary(Library.builder().groupId("ch{}ethz{}globis{}phtree").artifactId("phtree").version("2.8.0")
-                .relocate("ch{}ethz{}globis{}phtree", "clib{}phtree").build());
-        lib.loadLibrary(Library.builder().groupId("net{}sf{}trove4j").artifactId("trove4j").version("3.0.3")
-                .relocate("gnu{}trove", "clib{}trove").build());
+        lib.loadLibrary(
+                Library.builder().groupId("ch{}ethz{}globis{}phtree").artifactId("phtree").version("2.8.0").build());
+        lib.loadLibrary(Library.builder().groupId("it{}unimi{}dsi").artifactId("fastutil").version("8.5.14")
+                .relocate("it{}unimi{}dsi", "clib{}fastutil").build());
         lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-text-minimessage")
-                .version("4.15.0").relocate("net{}kyori", "clib{}net{}kyori").build());
-        lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-api").version("4.15.0")
+                .version("4.17.0").relocate("net{}kyori", "clib{}net{}kyori").build());
+        lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-api").version("4.17.0")
                 .relocate("net{}kyori", "clib{}net{}kyori").build());
-        lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-key").version("4.15.0")
+        lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-key").version("4.17.0")
                 .relocate("net{}kyori", "clib{}net{}kyori").build());
         lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("examination-api").version("1.3.0")
                 .relocate("net{}kyori", "clib{}net{}kyori").build());
         lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("examination-string").version("1.3.0")
                 .relocate("net{}kyori", "clib{}net{}kyori").build());
-        lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-platform-bukkit").version("4.3.2")
+        lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-platform-bukkit").version("4.3.3")
                 .relocate("net{}kyori", "clib{}net{}kyori").build());
-        lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-platform-api").version("4.3.2")
+        lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-platform-api").version("4.3.3")
                 .relocate("net{}kyori", "clib{}net{}kyori").build());
         lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-text-serializer-bungeecord")
-                .version("4.3.2").relocate("net{}kyori", "clib{}net{}kyori").build());
+                .version("4.3.3").relocate("net{}kyori", "clib{}net{}kyori").build());
         lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-text-serializer-legacy")
                 .version("4.13.1").relocate("net{}kyori", "clib{}net{}kyori").build());
         lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-nbt").version("4.13.1")
@@ -315,16 +315,17 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
                 .version("4.13.1").relocate("net{}kyori", "clib{}net{}kyori").build());
         lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-text-serializer-gson-legacy-impl")
                 .version("4.13.1").relocate("net{}kyori", "clib{}net{}kyori").build());
-        lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-platform-facet").version("4.3.2")
+        lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-platform-facet").version("4.3.3")
                 .relocate("net{}kyori", "clib{}net{}kyori").build());
         lib.loadLibrary(Library.builder().groupId("net{}kyori").artifactId("adventure-platform-viaversion")
-                .version("4.3.2").relocate("net{}kyori", "clib{}net{}kyori").build());
+                .version("4.3.3").relocate("net{}kyori", "clib{}net{}kyori").build());
         try {
             Class.forName("org.joml.Vector3f");
         } catch (Throwable t) {
             lib.loadLibrary(Library.builder().groupId("org{}joml").artifactId("joml").version("1.10.5").build());
         }
         PhTreeHelper.enablePooling(false);
+        PhTreeHelper.MAX_OBJECT_POOL_SIZE = 0;
     }
 
     @Override
@@ -349,13 +350,14 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
         Editor.leaveAll();
         despawnNPCs(saveOnDisable);
         HandlerList.unregisterAll(this);
+
+        templateRegistry = null;
         npcRegistry = null;
         locationLookup = null;
         enabled = false;
         saveOnDisable = true;
         ProfileFetcher.shutdown();
         Skin.clearCache();
-        Template.shutdown();
         NMS.shutdown();
         CitizensAPI.shutdown();
     }
@@ -381,8 +383,6 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
-        registerScriptHelpers();
-
         saves = createStorage(getDataFolder());
         shops = new StoredShops(new YamlStorage(new File(getDataFolder(), "shops.yml")));
         if (saves == null || !shops.loadFromDisk()) {
@@ -390,22 +390,19 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
-        locationLookup = new LocationLookup();
+        npcRegistry = new CitizensNPCRegistry(saves, "citizens");
+        temporaryRegistry = new CitizensNPCRegistry(new MemoryNPCDataStore(), "citizens-temporary");
+        locationLookup = new LocationLookup(npcRegistry);
         locationLookup.runTaskTimer(CitizensAPI.getPlugin(), 0, 5);
 
-        npcRegistry = new CitizensNPCRegistry(saves, "citizens");
         traitFactory = new CitizensTraitFactory(this);
-        traitFactory.registerTrait(TraitInfo.create(ShopTrait.class).withSupplier(() -> new ShopTrait(shops)));
         selector = new NPCSelector(this);
-
+        templateRegistry = new TemplateRegistry(new File(getDataFolder(), "templates").toPath());
+        if (!new File(getDataFolder(), "skins").exists()) {
+            new File(getDataFolder(), "skins").mkdir();
+        }
         Bukkit.getPluginManager().registerEvents(new EventListen(), this);
         Bukkit.getPluginManager().registerEvents(new Placeholders(), this);
-        Placeholders.registerNPCPlaceholder(Pattern.compile("command_[a-zA-Z_0-9]+"), (npc, sender, input) -> {
-            npc = npc.hasTrait(ClickRedirectTrait.class) ? npc.getTraitNullable(ClickRedirectTrait.class).getNPC()
-                    : npc;
-            CommandTrait trait = npc.getTraitNullable(CommandTrait.class);
-            return trait == null ? "" : trait.fillPlaceholder(sender, input);
-        });
 
         Plugin papi = Bukkit.getPluginManager().getPlugin("PlaceholderAPI");
         if (papi != null && papi.isEnabled()) {
@@ -415,9 +412,10 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
 
         registerCommands();
         NMS.load(commands);
-        Template.migrate();
         Bukkit.getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
         commands.registerTabCompletion(this);
+        commands.setTranslationPrefixProvider(cmd -> "citizens.commands." + cmd.aliases()[0]
+                + (cmd.modifiers().length > 0 && !cmd.modifiers()[0].isEmpty() ? "." + cmd.modifiers()[0] : ""));
 
         // Setup NPCs after all plugins have been enabled (allows for multiworld
         // support and for NPCs to properly register external settings)
@@ -453,29 +451,22 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
         commands.register(WaypointCommands.class);
     }
 
-    private void registerScriptHelpers() {
-        ScriptCompiler compiler = CitizensAPI.getScriptCompiler();
-        compiler.registerGlobalContextProvider(new EventRegistrar(this));
-        compiler.registerGlobalContextProvider(new ObjectProvider("plugin", this));
-    }
-
     public void reload() throws NPCLoadException {
+        getServer().getPluginManager().callEvent(new CitizensPreReloadEvent());
+
         Editor.leaveAll();
         config.reload();
         despawnNPCs(false);
         ProfileFetcher.reset();
         Skin.clearCache();
 
-        getServer().getPluginManager().callEvent(new CitizensPreReloadEvent());
+        templateRegistry = new TemplateRegistry(new File(getDataFolder(), "templates").toPath());
 
         saves.reloadFromSource();
         saves.loadInto(npcRegistry);
 
         shops.loadFromDisk();
         shops.load();
-
-        Template.shutdown();
-
         getServer().getPluginManager().callEvent(new CitizensReloadEvent());
     }
 
@@ -530,18 +521,16 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
             }
         }
         Translator.setInstance(new File(getDataFolder(), "lang"), locale);
+        if (!locale.getLanguage().equals("en")) {
+            Messaging.logTr(Messages.CONTRIBUTE_TO_TRANSLATION_PROMPT, locale.getLanguage());
+        }
     }
 
     private void startMetrics() {
         try {
             Metrics metrics = new Metrics(this, 2463);
-            metrics.addCustomChart(new Metrics.SingleLineChart("total_npcs", () -> {
-                if (npcRegistry == null)
-                    return 0;
-                return Iterables.size(npcRegistry);
-            }));
-            metrics.addCustomChart(new Metrics.SingleLineChart("using_templates",
-                    () -> Math.min(1, Iterables.size(Template.getTemplates()))));
+            metrics.addCustomChart(new Metrics.SingleLineChart("total_npcs",
+                    () -> npcRegistry == null ? 0 : Iterables.size(npcRegistry)));
             metrics.addCustomChart(new Metrics.SimplePie("locale", () -> Locale.getDefault().getLanguage()));
             metrics.addCustomChart(new Metrics.AdvancedPie("traits", () -> {
                 Map<String, Integer> res = Maps.newHashMap();
@@ -593,10 +582,8 @@ public class Citizens extends JavaPlugin implements CitizensPlugin {
                 try {
                     protocolListener = new ProtocolLibListener(Citizens.this);
                 } catch (Throwable t) {
-                    Messaging.severe("ProtocolLib support not enabled: enable debug to see error");
-                    if (Messaging.isDebugging()) {
-                        t.printStackTrace();
-                    }
+                    Messaging.severe("ProtocolLib support not enabled due to following error:");
+                    t.printStackTrace();
                 }
             }
             saves.loadInto(npcRegistry);

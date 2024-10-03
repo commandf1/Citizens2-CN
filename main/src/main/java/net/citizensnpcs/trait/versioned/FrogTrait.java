@@ -15,6 +15,7 @@ import net.citizensnpcs.api.persistence.Persist;
 import net.citizensnpcs.api.trait.Trait;
 import net.citizensnpcs.api.trait.TraitName;
 import net.citizensnpcs.api.util.Messaging;
+import net.citizensnpcs.api.util.OldEnumCompat.FrogVariantEnum;
 import net.citizensnpcs.util.Messages;
 import net.citizensnpcs.util.Util;
 
@@ -33,7 +34,7 @@ public class FrogTrait extends Trait {
 
     @Override
     public void run() {
-        if (npc.isSpawned() && npc.getEntity() instanceof Frog && variant != null) {
+        if (variant != null && npc.getEntity() instanceof Frog) {
             Frog frog = (Frog) npc.getEntity();
             frog.setVariant(variant);
         }
@@ -46,7 +47,7 @@ public class FrogTrait extends Trait {
     @Command(
             aliases = { "npc" },
             usage = "frog (--variant variant)",
-            desc = "Sets frog modifiers",
+            desc = "",
             modifiers = { "frog" },
             min = 1,
             max = 1,
@@ -58,9 +59,10 @@ public class FrogTrait extends Trait {
         String output = "";
         if (args.hasValueFlag("variant")) {
             if (variant == null)
-                throw new CommandException(Messages.INVALID_FROG_VARIANT, Util.listValuesPretty(Frog.Variant.values()));
+                throw new CommandException(Messages.INVALID_FROG_VARIANT,
+                        Util.listValuesPretty(FrogVariantEnum.values()));
             trait.setVariant(variant);
-            output += Messaging.tr(Messages.FROG_VARIANT_SET, Util.prettyEnum(variant));
+            output += Messaging.tr(Messages.FROG_VARIANT_SET, variant);
         }
         if (!output.isEmpty()) {
             Messaging.send(sender, output);
